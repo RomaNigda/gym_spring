@@ -16,6 +16,7 @@ class GymSpringApplicationTests {
 			assertEquals(5, storage.getTrainerMap().size());
 			assertEquals(5, storage.getTraineeMap().size());
 			assertEquals(5, storage.getTrainingMap().size());
+			storage.getTrainingMap().forEach((id, training) -> assertEquals(id, training.getId()));
 		}
 	}
 

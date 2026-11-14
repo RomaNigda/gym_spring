@@ -142,6 +142,7 @@ public class Storage {
     private Training parseTraining(String[] fields) {
         requireFieldCount(fields, 8, "training");
         return new Training(
+                parseId(fields[1]),
                 parseId(fields[2]),
                 parseId(fields[3]),
                 fields[4].trim(),
