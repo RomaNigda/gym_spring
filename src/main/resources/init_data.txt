@@ -1,0 +1,27 @@
+# Format: <namespace>;<field1>;...
+# Empty lines and lines beginning with # are ignored.
+# For trainer and trainee profiles, id and userId must match.
+
+# --- Trainer ---
+# id;firstName;lastName;username;password;isActive;trainingType;userId
+trainer;1;John;Smith;John.Smith;A1b2C3d4E5;true;STRENGTH;1
+trainer;2;Anna;Brown;Anna.Brown;X9y8Z7w6V5;true;FLEXIBILITY;2
+trainer;3;David;Wilson;David.Wilson;K4m7N2p8Q1;true;CARDIO;3
+trainer;4;Olivia;Taylor;Olivia.Taylor;R6t3Y9u2I5;true;BALANCE;4
+trainer;5;James;Anderson;James.Anderson;B8v1C5x0Z3;true;STRENGTH;5
+
+# --- Trainee ---
+# id;firstName;lastName;username;password;isActive;dateOfBirth;address;userId
+trainee;1;Mike;Johnson;Mike.Johnson;Q1w2E3r4T5;true;1995-04-12;Kyiv, Main St 10;1
+trainee;2;Sarah;Davis;Sarah.Davis;P0o9I8u7Y6;true;1998-11-30;Lviv, Green Ave 5;2
+trainee;3;Emily;Martinez;Emily.Martinez;D3f6G9h2J5;true;1992-07-08;Odesa, Sea St 12;3
+trainee;4;Daniel;Garcia;Daniel.Garcia;L7z4X1c8V5;true;2000-02-19;Dnipro, Central Ave 24;4
+trainee;5;Sophia;Moore;Sophia.Moore;N2b5M8q1W4;true;1997-09-25;Kharkiv, Park Rd 7;5
+
+# --- Training ---
+# id;traineeId;trainerId;trainingName;trainingType;trainingDateTime;durationMinutes
+training;1;1;1;Morning Fitness;STRENGTH;2026-11-15T08:00:00;60
+training;2;2;2;Evening Yoga;FLEXIBILITY;2026-11-16T18:00:00;45
+training;3;3;3;Cardio Endurance;CARDIO;2026-11-17T07:30:00;50
+training;4;4;4;Balance and Mobility;BALANCE;2026-11-18T17:00:00;40
+training;5;5;5;Strength Basics;STRENGTH;2026-11-19T09:00:00;55
