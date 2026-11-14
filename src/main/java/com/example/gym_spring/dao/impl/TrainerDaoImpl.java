@@ -18,11 +18,8 @@ public class TrainerDaoImpl implements TrainerDao {
     }
 
     @Override
-    public void save(Trainer trainer) {
-        Long id = trainer.getUserId();
-        if (storage.getTrainerMap().putIfAbsent(id, trainer) != null) {
-            throw new IllegalArgumentException("Trainer already exists: " + id);
-        }
+    public Trainer save(Trainer trainer) {
+        return storage.insertTrainer(trainer);
     }
 
     @Override

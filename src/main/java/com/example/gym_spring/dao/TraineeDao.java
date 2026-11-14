@@ -6,7 +6,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface TraineeDao {
-    void save(Trainee trainee);
+    /** Saves a new trainee with a generated ID, ignoring the input ID. */
+    Trainee save(Trainee trainee);
 
     void update(Trainee trainee);
 

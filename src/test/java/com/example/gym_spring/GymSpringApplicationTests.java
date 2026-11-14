@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GymSpringApplicationTests {
 
@@ -16,7 +17,13 @@ class GymSpringApplicationTests {
 			assertEquals(5, storage.getTrainerMap().size());
 			assertEquals(5, storage.getTraineeMap().size());
 			assertEquals(5, storage.getTrainingMap().size());
+			storage.getTrainerMap().forEach((id, trainer) -> assertEquals(id, trainer.getUserId()));
+			storage.getTraineeMap().forEach((id, trainee) -> assertEquals(id, trainee.getUserId()));
 			storage.getTrainingMap().forEach((id, training) -> assertEquals(id, training.getId()));
+			storage.getTrainingMap().values().forEach(training -> {
+				assertTrue(storage.getTraineeMap().containsKey(training.getTraineeId()));
+				assertTrue(storage.getTrainerMap().containsKey(training.getTrainerId()));
+			});
 		}
 	}
 

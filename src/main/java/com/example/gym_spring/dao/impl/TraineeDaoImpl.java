@@ -18,11 +18,8 @@ public class TraineeDaoImpl implements TraineeDao {
     }
 
     @Override
-    public void save(Trainee trainee) {
-        Long id = trainee.getUserId();
-        if (storage.getTraineeMap().putIfAbsent(id, trainee) != null) {
-            throw new IllegalArgumentException("Trainee already exists: " + id);
-        }
+    public Trainee save(Trainee trainee) {
+        return storage.insertTrainee(trainee);
     }
 
     @Override

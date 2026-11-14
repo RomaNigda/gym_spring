@@ -17,11 +17,8 @@ public class TrainingDaoImpl implements TrainingDao {
     }
 
     @Override
-    public void save(Training training) {
-        Long id = training.getId();
-        if (storage.getTrainingMap().putIfAbsent(id, training) != null) {
-            throw new IllegalArgumentException("Training already exists: " + id);
-        }
+    public Training save(Training training) {
+        return storage.insertTraining(training);
     }
 
     @Override

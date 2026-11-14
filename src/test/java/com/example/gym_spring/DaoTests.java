@@ -27,21 +27,22 @@ class DaoTests {
         try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
             TrainerDao dao = context.getBean(TrainerDao.class);
             Trainer trainer = trainer(101L, "trainer.one");
-            dao.save(trainer);
+            Trainer saved = dao.save(trainer);
 
-            assertEquals(trainer, dao.findById(101L).orElseThrow());
-            assertEquals(trainer, dao.findByUsername("trainer.one").orElseThrow());
-            assertTrue(dao.findAll().contains(trainer));
-            assertThrows(IllegalArgumentException.class, () -> dao.save(trainer));
+            assertEquals(6L, saved.getUserId());
+            assertEquals(saved, dao.findById(saved.getUserId()).orElseThrow());
+            assertEquals(saved, dao.findByUsername("trainer.one").orElseThrow());
+            assertTrue(dao.findAll().contains(saved));
+            assertEquals(7L, dao.save(trainer).getUserId());
 
-            Trainer updated = trainer(101L, "trainer.updated");
+            Trainer updated = trainer(saved.getUserId(), "trainer.updated");
             dao.update(updated);
             assertEquals(updated, dao.findByUsername("trainer.updated").orElseThrow());
             assertThrows(IllegalArgumentException.class, () -> dao.update(trainer(999L, "missing")));
             assertThrows(IllegalArgumentException.class, () -> dao.delete(999L));
 
-            dao.delete(101L);
-            assertTrue(dao.findById(101L).isEmpty());
+            dao.delete(saved.getUserId());
+            assertTrue(dao.findById(saved.getUserId()).isEmpty());
         }
     }
 
@@ -50,20 +51,22 @@ class DaoTests {
         try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
             TraineeDao dao = context.getBean(TraineeDao.class);
             Trainee trainee = trainee(101L, "trainee.one");
-            dao.save(trainee);
+            Trainee saved = dao.save(trainee);
 
-            assertEquals(trainee, dao.findById(101L).orElseThrow());
-            assertEquals(trainee, dao.findByUsername("trainee.one").orElseThrow());
-            assertTrue(dao.findAll().contains(trainee));
+            assertEquals(6L, saved.getUserId());
+            assertEquals(saved, dao.findById(saved.getUserId()).orElseThrow());
+            assertEquals(saved, dao.findByUsername("trainee.one").orElseThrow());
+            assertTrue(dao.findAll().contains(saved));
+            assertEquals(7L, dao.save(trainee).getUserId());
 
-            Trainee updated = trainee(101L, "trainee.updated");
+            Trainee updated = trainee(saved.getUserId(), "trainee.updated");
             dao.update(updated);
             assertEquals(updated, dao.findByUsername("trainee.updated").orElseThrow());
             assertThrows(IllegalArgumentException.class, () -> dao.update(trainee(999L, "missing")));
             assertThrows(IllegalArgumentException.class, () -> dao.delete(999L));
 
-            dao.delete(101L);
-            assertFalse(dao.findById(101L).isPresent());
+            dao.delete(saved.getUserId());
+            assertFalse(dao.findById(saved.getUserId()).isPresent());
         }
     }
 
@@ -72,20 +75,21 @@ class DaoTests {
         try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
             TrainingDao dao = context.getBean(TrainingDao.class);
             Training training = training(101L);
-            dao.save(training);
+            Training saved = dao.save(training);
 
-            assertEquals(training, dao.findById(101L).orElseThrow());
-            assertTrue(dao.findAll().contains(training));
-            assertThrows(IllegalArgumentException.class, () -> dao.save(training));
+            assertEquals(6L, saved.getId());
+            assertEquals(saved, dao.findById(saved.getId()).orElseThrow());
+            assertTrue(dao.findAll().contains(saved));
+            assertEquals(7L, dao.save(training).getId());
 
-            Training updated = training(101L);
+            Training updated = training(saved.getId());
             dao.update(updated);
-            assertEquals(updated, dao.findById(101L).orElseThrow());
+            assertEquals(updated, dao.findById(saved.getId()).orElseThrow());
             assertThrows(IllegalArgumentException.class, () -> dao.update(training(999L)));
             assertThrows(IllegalArgumentException.class, () -> dao.delete(999L));
 
-            dao.delete(101L);
-            assertTrue(dao.findById(101L).isEmpty());
+            dao.delete(saved.getId());
+            assertTrue(dao.findById(saved.getId()).isEmpty());
         }
     }
 

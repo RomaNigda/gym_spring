@@ -17,6 +17,11 @@ public class Training {
     public Training() {
     }
 
+    public Training(Long traineeId, Long trainerId, String trainingName, TrainingType trainingType,
+                    LocalDateTime trainingDateTime, Long trainingDuration) {
+        this(null, traineeId, trainerId, trainingName, trainingType, trainingDateTime, trainingDuration);
+    }
+
     public Training(Long id, Long traineeId, Long trainerId, String trainingName, TrainingType trainingType,
                     LocalDateTime trainingDateTime, Long trainingDuration) {
         this.id = id;

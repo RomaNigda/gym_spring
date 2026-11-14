@@ -21,14 +21,16 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongFunction;
 
 @Component
 public class Storage {
 
     private static final Logger log = LoggerFactory.getLogger(Storage.class);
 
-    // ===== 5. Геттери для DAO =====
     // ===== 1. Посилання на біни-мапи (namespace = ім’я біна) =====
     @Getter
     private final Map<Long, Trainer> trainerMap;
@@ -38,6 +40,11 @@ public class Storage {
     private final Map<Long, Training> trainingMap;
     @Getter
     private final Map<Long, TrainingType> trainingTypeMap;
+
+    // Keep a high-water mark so deleted IDs are not reused.
+    private final AtomicLong trainerIdSequence = new AtomicLong();
+    private final AtomicLong traineeIdSequence = new AtomicLong();
+    private final AtomicLong trainingIdSequence = new AtomicLong();
 
     // ===== 2. Шлях до файлу з property placeholder =====
     @Value("${storage.init.file}")
@@ -110,8 +117,54 @@ public class Storage {
             throw new IllegalStateException("Could not read initialization file: " + initFilePath, exception);
         }
 
+        trainerIdSequence.set(maxId(trainerMap));
+        traineeIdSequence.set(maxId(traineeMap));
+        trainingIdSequence.set(maxId(trainingMap));
+
         log.info("Loaded initial data: {} trainers, {} trainees, {} trainings",
                 trainersLoaded, traineesLoaded, trainingsLoaded);
+    }
+
+    public Trainer insertTrainer(Trainer trainer) {
+        Objects.requireNonNull(trainer, "trainer must not be null");
+        return insertWithGeneratedId(trainerMap, trainerIdSequence, id -> new Trainer(
+                trainer.getFirstName(), trainer.getLastName(), trainer.getUsername(), trainer.getPassword(),
+                trainer.isActive(), trainer.getTrainingTypes(), id));
+    }
+
+    public Trainee insertTrainee(Trainee trainee) {
+        Objects.requireNonNull(trainee, "trainee must not be null");
+        return insertWithGeneratedId(traineeMap, traineeIdSequence, id -> new Trainee(
+                trainee.getFirstName(), trainee.getLastName(), trainee.getUsername(), trainee.getPassword(),
+                trainee.isActive(), trainee.getDateOfBirth(), trainee.getAddress(), id));
+    }
+
+    public Training insertTraining(Training training) {
+        Objects.requireNonNull(training, "training must not be null");
+        return insertWithGeneratedId(trainingMap, trainingIdSequence, id -> new Training(
+                id, training.getTraineeId(), training.getTrainerId(), training.getTrainingName(),
+                training.getTrainingType(), training.getTrainingDateTime(), training.getTrainingDuration()));
+    }
+
+    private <T> T insertWithGeneratedId(Map<Long, T> map, AtomicLong sequence, LongFunction<T> factory) {
+        while (true) {
+            long highestStoredId = maxId(map);
+            long id = sequence.updateAndGet(previousId -> {
+                long highestId = Math.max(previousId, highestStoredId);
+                if (highestId == Long.MAX_VALUE) {
+                    throw new IllegalStateException("Cannot generate an ID: maximum value reached");
+                }
+                return highestId + 1;
+            });
+            T entity = factory.apply(id);
+            if (map.putIfAbsent(id, entity) == null) {
+                return entity;
+            }
+        }
+    }
+
+    private long maxId(Map<Long, ?> map) {
+        return Math.max(0L, map.keySet().stream().mapToLong(Long::longValue).max().orElse(0L));
     }
 
     private Trainer parseTrainer(String[] fields) {
@@ -123,7 +176,7 @@ public class Storage {
                 fields[5].trim(),
                 parseBoolean(fields[6]),
                 Set.of(parseTrainingType(fields[7])),
-                parseId(fields[8]));
+                parseProfileUserId(fields, 8));
     }
 
     private Trainee parseTrainee(String[] fields) {
@@ -136,7 +189,16 @@ public class Storage {
                 parseBoolean(fields[6]),
                 LocalDate.parse(fields[7].trim()),
                 fields[8].trim(),
-                parseId(fields[9]));
+                parseProfileUserId(fields, 9));
+    }
+
+    private long parseProfileUserId(String[] fields, int userIdIndex) {
+        long id = parseId(fields[1]);
+        long userId = parseId(fields[userIdIndex]);
+        if (id != userId) {
+            throw new IllegalArgumentException("Profile id " + id + " does not match userId " + userId);
+        }
+        return userId;
     }
 
     private Training parseTraining(String[] fields) {

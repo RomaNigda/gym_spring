@@ -13,6 +13,10 @@ public class Trainee extends User {
     public Trainee() {
     }
 
+    public Trainee(String firstName, String lastName, boolean isActive, LocalDate dateOfBirth, String address) {
+        this(firstName, lastName, null, null, isActive, dateOfBirth, address, null);
+    }
+
     public Trainee(String firstName, String lastName, String username, String password,
                    boolean isActive, LocalDate dateOfBirth, String address, Long userId) {
         super(firstName, lastName, username, password, isActive);

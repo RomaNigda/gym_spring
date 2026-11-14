@@ -6,7 +6,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface TrainingDao {
-    void save(Training training);
+    /** Saves a new training with a generated ID, ignoring the input ID. */
+    Training save(Training training);
 
     void update(Training training);
 
