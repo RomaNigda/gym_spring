@@ -1,13 +1,14 @@
 package com.example.gym_spring;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import com.example.gym_spring.config.AppConfig;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
-@SpringBootApplication
 public class GymSpringApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(GymSpringApplication.class, args);
+        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
+            System.out.println("Spring context loaded with " + context.getBeanDefinitionCount() + " beans.");
+        }
     }
 
 }

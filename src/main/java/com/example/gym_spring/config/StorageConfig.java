@@ -4,14 +4,25 @@ import com.example.gym_spring.domain.Trainee;
 import com.example.gym_spring.domain.Trainer;
 import com.example.gym_spring.domain.Training;
 import com.example.gym_spring.domain.TrainingType;
+import com.example.gym_spring.storage.Storage;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Configuration
+@ComponentScan(basePackageClasses = Storage.class)
+@PropertySource("classpath:application.properties")
 public class StorageConfig {
+
+    @Bean
+    public static PropertySourcesPlaceholderConfigurer propertySourcesPlaceholderConfigurer() {
+        return new PropertySourcesPlaceholderConfigurer();
+    }
 
     @Bean
     public Map<Long, Trainer> trainerStorage() {
