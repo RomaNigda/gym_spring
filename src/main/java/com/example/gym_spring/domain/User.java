@@ -1,11 +1,7 @@
 package com.example.gym_spring.domain;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 
-@AllArgsConstructor
-@NoArgsConstructor
 @Getter
 public class User {
     protected String firstName;
@@ -13,4 +9,15 @@ public class User {
     protected String username;
     protected String password;
     protected boolean isActive;
+
+    public User() {
+    }
+
+    public User(String firstName, String lastName, String username, String password, boolean isActive) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.username = username;
+        this.password = password;
+        this.isActive = isActive;
+    }
 }

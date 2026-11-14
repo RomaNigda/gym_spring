@@ -1,13 +1,9 @@
 package com.example.gym_spring.domain;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-@AllArgsConstructor
-@NoArgsConstructor
 @Getter
 public class Training {
     private Long traineeId;
@@ -16,5 +12,17 @@ public class Training {
     private TrainingType trainingType;
     private LocalDateTime trainingDateTime;
     private Long trainingDuration;
-}
 
+    public Training() {
+    }
+
+    public Training(Long traineeId, Long trainerId, String trainingName, TrainingType trainingType,
+                    LocalDateTime trainingDateTime, Long trainingDuration) {
+        this.traineeId = traineeId;
+        this.trainerId = trainerId;
+        this.trainingName = trainingName;
+        this.trainingType = trainingType;
+        this.trainingDateTime = trainingDateTime;
+        this.trainingDuration = trainingDuration;
+    }
+}
