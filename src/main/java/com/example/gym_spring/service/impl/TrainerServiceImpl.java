@@ -44,7 +44,7 @@ public class TrainerServiceImpl implements TrainerService {
                 trainer.getTrainingTypes(),
                 null);
         Trainer created = trainerDao.save(draft);
-        log.info("Created trainer with id {}", created.getUserId());
+        log.debug("Created trainer account with id {}", created.getUserId());
         return created;
     }
 
@@ -53,6 +53,7 @@ public class TrainerServiceImpl implements TrainerService {
         validateTrainer(trainer, true);
         Long id = trainer.getUserId();
         if (trainerDao.findById(id).isEmpty()) {
+            log.warn("Cannot update trainer: id {} was not found", id);
             throw new EntityNotFoundException("Trainer not found: " + id);
         }
         Trainer updated = new Trainer(
@@ -68,6 +69,7 @@ public class TrainerServiceImpl implements TrainerService {
         try {
             trainerDao.update(updated);
         } catch (IllegalArgumentException exception) {
+            log.warn("Cannot update trainer: id {} was not found", id);
             throw new EntityNotFoundException("Trainer not found: " + id, exception);
         }
         log.info("Updated trainer with id {}", id);
@@ -77,25 +79,28 @@ public class TrainerServiceImpl implements TrainerService {
     @Override
     public Trainer selectById(Long id) {
         ServiceValidation.requirePositiveId(id, "trainer id");
-        Trainer trainer = trainerDao.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Trainer not found: " + id));
-        log.info("Selected trainer with id {}", id);
+        Trainer trainer = trainerDao.findById(id).orElseThrow(() -> {
+            log.warn("Trainer with id {} was not found", id);
+            return new EntityNotFoundException("Trainer not found: " + id);
+        });
+        log.debug("Selected trainer with id {}", id);
         return trainer;
     }
 
     @Override
     public Trainer selectByUsername(String username) {
         String validatedUsername = ServiceValidation.requireText(username, "username");
-        Trainer trainer = trainerDao.findByUsername(validatedUsername)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Trainer not found for username: " + validatedUsername));
-        log.info("Selected trainer by username");
+        Trainer trainer = trainerDao.findByUsername(validatedUsername).orElseThrow(() -> {
+            log.warn("Trainer was not found for the supplied username");
+            return new EntityNotFoundException("Trainer not found for username: " + validatedUsername);
+        });
+        log.debug("Selected trainer by username");
         return trainer;
     }
 
     @Override
     public List<Trainer> selectAll() {
-        log.info("Selected all trainers");
+        log.debug("Selected all trainers");
         return trainerDao.findAll();
     }
 

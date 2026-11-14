@@ -33,15 +33,17 @@ public class TrainingServiceImpl implements TrainingService {
     @Override
     public Training selectById(Long id) {
         ServiceValidation.requirePositiveId(id, "training id");
-        Training training = trainingDao.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Training not found: " + id));
-        log.info("Selected training with id {}", id);
+        Training training = trainingDao.findById(id).orElseThrow(() -> {
+            log.warn("Training with id {} was not found", id);
+            return new EntityNotFoundException("Training not found: " + id);
+        });
+        log.debug("Selected training with id {}", id);
         return training;
     }
 
     @Override
     public List<Training> selectAll() {
-        log.info("Selected all trainings");
+        log.debug("Selected all trainings");
         return trainingDao.findAll();
     }
 

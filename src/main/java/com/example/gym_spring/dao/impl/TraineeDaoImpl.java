@@ -3,6 +3,8 @@ package com.example.gym_spring.dao.impl;
 import com.example.gym_spring.dao.TraineeDao;
 import com.example.gym_spring.domain.Trainee;
 import com.example.gym_spring.storage.Storage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -11,6 +13,8 @@ import java.util.Optional;
 
 @Repository
 public class TraineeDaoImpl implements TraineeDao {
+    private static final Logger log = LoggerFactory.getLogger(TraineeDaoImpl.class);
+
     private final Storage storage;
 
     public TraineeDaoImpl(Storage storage) {
@@ -19,22 +23,28 @@ public class TraineeDaoImpl implements TraineeDao {
 
     @Override
     public Trainee save(Trainee trainee) {
-        return storage.insertTrainee(trainee);
+        Trainee saved = storage.insertTrainee(trainee);
+        log.debug("Persisted trainee with id {}", saved.getUserId());
+        return saved;
     }
 
     @Override
     public void update(Trainee trainee) {
         Long id = trainee.getUserId();
         if (storage.getTraineeMap().replace(id, trainee) == null) {
+            log.warn("Cannot persist trainee update: id {} was not found", id);
             throw new IllegalArgumentException("Trainee not found: " + id);
         }
+        log.debug("Persisted trainee update with id {}", id);
     }
 
     @Override
     public void delete(Long id) {
         if (storage.getTraineeMap().remove(id) == null) {
+            log.warn("Cannot delete trainee: id {} was not found", id);
             throw new IllegalArgumentException("Trainee not found: " + id);
         }
+        log.debug("Deleted trainee with id {}", id);
     }
 
     @Override

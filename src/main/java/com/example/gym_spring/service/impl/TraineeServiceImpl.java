@@ -47,7 +47,7 @@ public class TraineeServiceImpl implements TraineeService {
                 trainee.getAddress(),
                 null);
         Trainee created = traineeDao.save(draft);
-        log.info("Created trainee with id {}", created.getUserId());
+        log.debug("Created trainee account with id {}", created.getUserId());
         return created;
     }
 
@@ -56,6 +56,7 @@ public class TraineeServiceImpl implements TraineeService {
         validateTrainee(trainee, true);
         Long id = trainee.getUserId();
         if (traineeDao.findById(id).isEmpty()) {
+            log.warn("Cannot update trainee: id {} was not found", id);
             throw new EntityNotFoundException("Trainee not found: " + id);
         }
         Trainee updated = new Trainee(
@@ -72,6 +73,7 @@ public class TraineeServiceImpl implements TraineeService {
         try {
             traineeDao.update(updated);
         } catch (IllegalArgumentException exception) {
+            log.warn("Cannot update trainee: id {} was not found", id);
             throw new EntityNotFoundException("Trainee not found: " + id, exception);
         }
         log.info("Updated trainee with id {}", id);
@@ -82,11 +84,13 @@ public class TraineeServiceImpl implements TraineeService {
     public void delete(Long id) {
         ServiceValidation.requirePositiveId(id, "trainee id");
         if (traineeDao.findById(id).isEmpty()) {
+            log.warn("Cannot delete trainee: id {} was not found", id);
             throw new EntityNotFoundException("Trainee not found: " + id);
         }
         try {
             traineeDao.delete(id);
         } catch (IllegalArgumentException exception) {
+            log.warn("Cannot delete trainee: id {} was not found", id);
             throw new EntityNotFoundException("Trainee not found: " + id, exception);
         }
         log.info("Deleted trainee with id {}", id);
@@ -95,25 +99,28 @@ public class TraineeServiceImpl implements TraineeService {
     @Override
     public Trainee selectById(Long id) {
         ServiceValidation.requirePositiveId(id, "trainee id");
-        Trainee trainee = traineeDao.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Trainee not found: " + id));
-        log.info("Selected trainee with id {}", id);
+        Trainee trainee = traineeDao.findById(id).orElseThrow(() -> {
+            log.warn("Trainee with id {} was not found", id);
+            return new EntityNotFoundException("Trainee not found: " + id);
+        });
+        log.debug("Selected trainee with id {}", id);
         return trainee;
     }
 
     @Override
     public Trainee selectByUsername(String username) {
         String validatedUsername = ServiceValidation.requireText(username, "username");
-        Trainee trainee = traineeDao.findByUsername(validatedUsername)
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Trainee not found for username: " + validatedUsername));
-        log.info("Selected trainee by username");
+        Trainee trainee = traineeDao.findByUsername(validatedUsername).orElseThrow(() -> {
+            log.warn("Trainee was not found for the supplied username");
+            return new EntityNotFoundException("Trainee not found for username: " + validatedUsername);
+        });
+        log.debug("Selected trainee by username");
         return trainee;
     }
 
     @Override
     public List<Trainee> selectAll() {
-        log.info("Selected all trainees");
+        log.debug("Selected all trainees");
         return traineeDao.findAll();
     }
 
