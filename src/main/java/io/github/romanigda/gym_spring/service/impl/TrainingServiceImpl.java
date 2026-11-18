@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -51,17 +52,19 @@ public class TrainingServiceImpl implements TrainingService {
         if (training == null) {
             throw new ValidationException("Training must not be null");
         }
-        ServiceValidation.requirePositiveId(training.getTraineeId(), "trainee id");
-        ServiceValidation.requirePositiveId(training.getTrainerId(), "trainer id");
-        ServiceValidation.requireText(training.getTrainingName(), "trainingName");
+        List<String> errors = new ArrayList<>();
+        ServiceValidation.collectPositiveIdError(training.getTraineeId(), "trainee id", errors);
+        ServiceValidation.collectPositiveIdError(training.getTrainerId(), "trainer id", errors);
+        ServiceValidation.collectTextError(training.getTrainingName(), "trainingName", errors);
         if (training.getTrainingType() == null) {
-            throw new ValidationException("trainingType must not be null");
+            errors.add("trainingType must not be null");
         }
         if (training.getTrainingDateTime() == null) {
-            throw new ValidationException("trainingDateTime must not be null");
+            errors.add("trainingDateTime must not be null");
         }
         if (training.getTrainingDuration() == null || training.getTrainingDuration() <= 0) {
-            throw new ValidationException("trainingDuration must be a positive number");
+            errors.add("trainingDuration must be a positive number");
         }
+        ServiceValidation.throwIfErrors(errors);
     }
 }

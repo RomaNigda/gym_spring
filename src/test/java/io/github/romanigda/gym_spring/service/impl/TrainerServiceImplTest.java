@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -72,6 +73,25 @@ class TrainerServiceImplTest {
             // Assert
             assertEquals("Trainer must not be null", nullException.getMessage());
             assertEquals("trainingTypes must not be empty", typesException.getMessage());
+        }
+    }
+
+    @Test
+    void createReturnsAllTrainerValidationErrors() {
+        // Arrange
+        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
+            TrainerService service = context.getBean(TrainerService.class);
+            Trainer invalid = new Trainer("", " ", true, Set.of());
+
+            // Act
+            ValidationException exception = assertThrows(
+                    ValidationException.class, () -> service.create(invalid));
+
+            // Assert
+            assertEquals(List.of(
+                    "firstName must not be blank",
+                    "lastName must not be blank",
+                    "trainingTypes must not be empty"), exception.getErrors());
         }
     }
 

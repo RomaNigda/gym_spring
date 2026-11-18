@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -128,17 +129,19 @@ public class TraineeServiceImpl implements TraineeService {
         if (trainee == null) {
             throw new ValidationException("Trainee must not be null");
         }
-        ServiceValidation.requireText(trainee.getFirstName(), "firstName");
-        ServiceValidation.requireText(trainee.getLastName(), "lastName");
+        List<String> errors = new ArrayList<>();
+        ServiceValidation.collectTextError(trainee.getFirstName(), "firstName", errors);
+        ServiceValidation.collectTextError(trainee.getLastName(), "lastName", errors);
         if (trainee.getDateOfBirth() == null) {
-            throw new ValidationException("dateOfBirth must not be null");
-        }
-        if (trainee.getDateOfBirth().isAfter(LocalDate.now())) {
-            throw new ValidationException("dateOfBirth must not be in the future");
+            errors.add("dateOfBirth must not be null");
+        } else if (trainee.getDateOfBirth().isAfter(LocalDate.now())) {
+            errors.add("dateOfBirth must not be in the future");
         }
         if (isUpdate) {
-            ServiceValidation.requirePositiveId(trainee.getUserId(), "trainee id");
-            ServiceValidation.requireText(trainee.getUsername(), "username");
+            ServiceValidation.collectPositiveIdError(trainee.getUserId(), "trainee id", errors);
+            ServiceValidation.collectTextError(trainee.getUsername(), "username", errors);
+            ServiceValidation.collectTextError(trainee.getPassword(), "password", errors);
         }
+        ServiceValidation.throwIfErrors(errors);
     }
 }

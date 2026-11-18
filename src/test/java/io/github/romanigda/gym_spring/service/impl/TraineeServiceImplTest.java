@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -81,6 +82,24 @@ class TraineeServiceImplTest {
             assertEquals("Trainee must not be null", nullException.getMessage());
             assertEquals("firstName must not be blank", blankException.getMessage());
             assertEquals("dateOfBirth must not be in the future", dateException.getMessage());
+        }
+    }
+
+    @Test
+    void createReturnsAllTraineeValidationErrors() {
+        // Arrange
+        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
+            TraineeService service = context.getBean(TraineeService.class);
+            Trainee blankNames = trainee(" ", "");
+
+            // Act
+            ValidationException exception = assertThrows(
+                    ValidationException.class, () -> service.create(blankNames));
+
+            // Assert
+            assertEquals(List.of(
+                    "firstName must not be blank",
+                    "lastName must not be blank"), exception.getErrors());
         }
     }
 

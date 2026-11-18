@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -108,14 +109,17 @@ public class TrainerServiceImpl implements TrainerService {
         if (trainer == null) {
             throw new ValidationException("Trainer must not be null");
         }
-        ServiceValidation.requireText(trainer.getFirstName(), "firstName");
-        ServiceValidation.requireText(trainer.getLastName(), "lastName");
+        List<String> errors = new ArrayList<>();
+        ServiceValidation.collectTextError(trainer.getFirstName(), "firstName", errors);
+        ServiceValidation.collectTextError(trainer.getLastName(), "lastName", errors);
         if (trainer.getTrainingTypes() == null || trainer.getTrainingTypes().isEmpty()) {
-            throw new ValidationException("trainingTypes must not be empty");
+            errors.add("trainingTypes must not be empty");
         }
         if (isUpdate) {
-            ServiceValidation.requirePositiveId(trainer.getUserId(), "trainer id");
-            ServiceValidation.requireText(trainer.getUsername(), "username");
+            ServiceValidation.collectPositiveIdError(trainer.getUserId(), "trainer id", errors);
+            ServiceValidation.collectTextError(trainer.getUsername(), "username", errors);
+            ServiceValidation.collectTextError(trainer.getPassword(), "password", errors);
         }
+        ServiceValidation.throwIfErrors(errors);
     }
 }

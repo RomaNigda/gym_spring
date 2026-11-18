@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -56,6 +57,28 @@ class TrainingServiceImplTest {
             // Assert
             assertEquals("Training must not be null", nullException.getMessage());
             assertEquals("trainingDuration must be a positive number", durationException.getMessage());
+        }
+    }
+
+    @Test
+    void createReturnsAllTrainingValidationErrors() {
+        // Arrange
+        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
+            TrainingService service = context.getBean(TrainingService.class);
+            Training invalid = new Training(0L, -1L, " ", null, null, 0L);
+
+            // Act
+            ValidationException exception = assertThrows(
+                    ValidationException.class, () -> service.create(invalid));
+
+            // Assert
+            assertEquals(List.of(
+                    "trainee id must be a positive number",
+                    "trainer id must be a positive number",
+                    "trainingName must not be blank",
+                    "trainingType must not be null",
+                    "trainingDateTime must not be null",
+                    "trainingDuration must be a positive number"), exception.getErrors());
         }
     }
 
