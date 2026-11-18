@@ -1,0 +1,16 @@
+{
+  "trainers": [
+    {
+      "id": 1,
+      "firstName": "Test",
+      "lastName": "Mismatch",
+      "username": "Test.Mismatch",
+      "password": "password",
+      "isActive": true,
+      "trainingTypes": ["STRENGTH"],
+      "userId": 3
+    }
+  ],
+  "trainees": [],
+  "trainings": []
+}
