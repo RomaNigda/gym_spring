@@ -6,7 +6,13 @@ import java.util.List;
 import java.util.Optional;
 
 public interface TraineeDao {
-    /** Saves a new trainee with a generated ID, ignoring the input ID. */
+    /**
+     * Persists the supplied trainee as a new record. Any ID already set on the trainee is ignored;
+     * a new ID is generated.
+     *
+     * @param trainee the trainee data to persist
+     * @return the persisted trainee with its generated ID
+     */
     Trainee save(Trainee trainee);
 
     void update(Trainee trainee);
