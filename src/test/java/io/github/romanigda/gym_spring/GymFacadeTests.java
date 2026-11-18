@@ -39,18 +39,29 @@ class GymFacadeTests {
     @ParameterizedTest
     @MethodSource("delegations")
     void delegatesExactlyOnceWithUnchangedArgumentsAndResult(Delegation delegation) {
-        assertSame(delegation.result(), delegation.invoke().apply(facade));
+        // Arrange
+
+        // Act
+        Object result = delegation.invoke().apply(facade);
+
+        // Assert
+        assertSame(delegation.result(), result);
         assertCall(delegation);
     }
 
     @ParameterizedTest
     @MethodSource("delegations")
     void propagatesTheOriginalServiceException(Delegation delegation) {
+        // Arrange
         calls.failure = new ValidationException("Service failure");
 
-        assertSame(calls.failure, assertThrows(ValidationException.class,
-                () -> delegation.invoke().apply(facade)));
+        // Act
+        ValidationException exception = assertThrows(ValidationException.class,
+                () -> delegation.invoke().apply(facade));
+
+        // Assert
         assertCall(delegation);
+        assertSame(calls.failure, exception);
     }
 
     private void assertCall(Delegation delegation) {

@@ -43,44 +43,62 @@ class IdGenerationTests {
 
     @Test
     void emptyMapsStartAtOne() {
+        // Arrange
         Storage storage = new Storage(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(),
                 new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new DefaultResourceLoader());
         TraineeDao traineeDao = new TraineeDaoImpl(storage);
         TrainerDao trainerDao = new TrainerDaoImpl(storage);
         TrainingDao trainingDao = new TrainingDaoImpl(storage);
 
-        assertEquals(1L, traineeDao.save(trainee("First")).getUserId());
-        assertEquals(1L, trainerDao.save(trainer("First")).getUserId());
-        assertEquals(1L, trainingDao.save(training()).getId());
+        // Act
+        Trainee savedTrainee = traineeDao.save(trainee("First"));
+        Trainer savedTrainer = trainerDao.save(trainer("First"));
+        Training savedTraining = trainingDao.save(training());
+
+        // Assert
+        assertEquals(1L, savedTrainee.getUserId());
+        assertEquals(1L, savedTrainer.getUserId());
+        assertEquals(1L, savedTraining.getId());
         assertIdsMatchKeys(storage);
     }
 
     @Test
     void deletedHighestIdsAreNotReused() {
+        // Arrange
         try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
             TraineeDao traineeDao = context.getBean(TraineeDao.class);
             TrainerDao trainerDao = context.getBean(TrainerDao.class);
             TrainingDao trainingDao = context.getBean(TrainingDao.class);
 
+            // Act
             traineeDao.delete(5L);
             trainerDao.delete(5L);
             trainingDao.delete(5L);
-            assertEquals(6L, traineeDao.save(trainee("One")).getUserId());
-            assertEquals(6L, trainerDao.save(trainer("One")).getUserId());
-            assertEquals(6L, trainingDao.save(training()).getId());
+            Trainee sixthTrainee = traineeDao.save(trainee("One"));
+            Trainer sixthTrainer = trainerDao.save(trainer("One"));
+            Training sixthTraining = trainingDao.save(training());
 
             traineeDao.delete(6L);
             trainerDao.delete(6L);
             trainingDao.delete(6L);
-            assertEquals(7L, traineeDao.save(trainee("Two")).getUserId());
-            assertEquals(7L, trainerDao.save(trainer("Two")).getUserId());
-            assertEquals(7L, trainingDao.save(training()).getId());
+            Trainee seventhTrainee = traineeDao.save(trainee("Two"));
+            Trainer seventhTrainer = trainerDao.save(trainer("Two"));
+            Training seventhTraining = trainingDao.save(training());
+
+            // Assert
+            assertEquals(6L, sixthTrainee.getUserId());
+            assertEquals(6L, sixthTrainer.getUserId());
+            assertEquals(6L, sixthTraining.getId());
+            assertEquals(7L, seventhTrainee.getUserId());
+            assertEquals(7L, seventhTrainer.getUserId());
+            assertEquals(7L, seventhTraining.getId());
             assertIdsMatchKeys(context.getBean(Storage.class));
         }
     }
 
     @Test
     void generatedIdsAccountForExistingSparseMapKeys() {
+        // Arrange
         try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
             Storage storage = context.getBean(Storage.class);
             storage.getTraineeMap().put(40L, new Trainee("Existing", "Trainee", "existing.trainee",
@@ -90,15 +108,22 @@ class IdGenerationTests {
             storage.getTrainingMap().put(60L, new Training(60L, 1L, 1L, "Existing",
                     TrainingType.STRENGTH, TRAINING_DATE, 60L));
 
-            assertEquals(41L, context.getBean(TraineeService.class).create(trainee("Next")).getUserId());
-            assertEquals(51L, context.getBean(TrainerService.class).create(trainer("Next")).getUserId());
-            assertEquals(61L, context.getBean(TrainingService.class).create(training()).getId());
+            // Act
+            Trainee nextTrainee = context.getBean(TraineeService.class).create(trainee("Next"));
+            Trainer nextTrainer = context.getBean(TrainerService.class).create(trainer("Next"));
+            Training nextTraining = context.getBean(TrainingService.class).create(training());
+
+            // Assert
+            assertEquals(41L, nextTrainee.getUserId());
+            assertEquals(51L, nextTrainer.getUserId());
+            assertEquals(61L, nextTraining.getId());
             assertIdsMatchKeys(storage);
         }
     }
 
     @Test
     void seededProfilesCanBeUpdatedByTheirMapIds() {
+        // Arrange
         try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
             TraineeService traineeService = context.getBean(TraineeService.class);
             TrainerService trainerService = context.getBean(TrainerService.class);
@@ -111,17 +136,23 @@ class IdGenerationTests {
             Trainer updatedTrainer = new Trainer(trainer.getFirstName(), trainer.getLastName(),
                     trainer.getUsername(), trainer.getPassword(), trainer.isActive(),
                     Set.of(TrainingType.BALANCE), trainer.getUserId());
+
+            // Act
             traineeService.update(updatedTrainee);
             trainerService.update(updatedTrainer);
+            Trainee resultTrainee = traineeService.selectById(3L);
+            Trainer resultTrainer = trainerService.selectById(3L);
 
-            assertEquals("updated address", traineeService.selectById(3L).getAddress());
-            assertEquals(Set.of(TrainingType.BALANCE), trainerService.selectById(3L).getTrainingTypes());
+            // Assert
+            assertEquals("updated address", resultTrainee.getAddress());
+            assertEquals(Set.of(TrainingType.BALANCE), resultTrainer.getTrainingTypes());
             assertIdsMatchKeys(context.getBean(Storage.class));
         }
     }
 
     @Test
     void concurrentCreationsUseDistinctIdsInEachMap() throws Exception {
+        // Arrange
         try (var context = new AnnotationConfigApplicationContext(AppConfig.class);
              var executor = Executors.newFixedThreadPool(8)) {
             TraineeService traineeService = context.getBean(TraineeService.class);
@@ -139,11 +170,17 @@ class IdGenerationTests {
                 tasks.add(() -> trainingIds.add(trainingService.create(training()).getId()));
             }
 
+            // Act
+            List<Boolean> taskResults = new ArrayList<>();
             for (var result : executor.invokeAll(tasks)) {
-                assertTrue(result.get(), "generated IDs must be unique within each map");
+                taskResults.add(result.get());
             }
             Set<Long> expectedIds = LongStream.rangeClosed(6, 5 + countPerType)
                     .boxed().collect(Collectors.toSet());
+
+            // Assert
+            assertTrue(taskResults.stream().allMatch(Boolean::booleanValue),
+                    "generated IDs must be unique within each map");
             assertEquals(expectedIds, traineeIds);
             assertEquals(expectedIds, trainerIds);
             assertEquals(expectedIds, trainingIds);
@@ -158,14 +195,18 @@ class IdGenerationTests {
 
     @Test
     void idExhaustionFailsInsteadOfWrappingAround() {
+        // Arrange
         try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
             Storage storage = context.getBean(Storage.class);
             storage.getTrainingMap().put(Long.MAX_VALUE, new Training(Long.MAX_VALUE, 1L, 1L, "Last",
                     TrainingType.STRENGTH, TRAINING_DATE, 60L));
             int sizeBefore = storage.getTrainingMap().size();
 
+            // Act
             IllegalStateException exception = assertThrows(IllegalStateException.class,
                     () -> context.getBean(TrainingService.class).create(training()));
+
+            // Assert
             assertTrue(exception.getMessage().contains("maximum value"));
             assertEquals(sizeBefore, storage.getTrainingMap().size());
             assertIdsMatchKeys(storage);
@@ -174,16 +215,24 @@ class IdGenerationTests {
 
     @Test
     void initializationRejectsProfileIdsThatDifferFromMapKeys() {
+        // Arrange
+        List<BeanCreationException> exceptions = new ArrayList<>();
         for (String file : List.of("invalid-trainee-ids.txt", "invalid-trainer-ids.txt")) {
             try (var context = new AnnotationConfigApplicationContext()) {
                 context.getEnvironment().getPropertySources().addFirst(new MapPropertySource(
                         "testStorage", Map.of("storage.init.file", "classpath:" + file)));
                 context.register(AppConfig.class);
 
-                BeanCreationException exception = assertThrows(BeanCreationException.class, context::refresh);
-                assertTrue(exception.getMostSpecificCause().getMessage()
-                        .contains("Profile id 1 does not match userId 3"));
+                // Act
+                exceptions.add(assertThrows(BeanCreationException.class, context::refresh));
             }
+        }
+
+        // Assert
+        assertEquals(2, exceptions.size());
+        for (BeanCreationException exception : exceptions) {
+            assertTrue(exception.getMostSpecificCause().getMessage()
+                    .contains("Profile id 1 does not match userId 3"));
         }
     }
 
