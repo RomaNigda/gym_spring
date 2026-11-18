@@ -217,7 +217,7 @@ class IdGenerationTests {
     void initializationRejectsProfileIdsThatDifferFromMapKeys() {
         // Arrange
         List<BeanCreationException> exceptions = new ArrayList<>();
-        for (String file : List.of("invalid-trainee-ids.txt", "invalid-trainer-ids.txt")) {
+        for (String file : List.of("invalid-trainee-ids.json", "invalid-trainer-ids.json")) {
             try (var context = new AnnotationConfigApplicationContext()) {
                 context.getEnvironment().getPropertySources().addFirst(new MapPropertySource(
                         "testStorage", Map.of("storage.init.file", "classpath:" + file)));

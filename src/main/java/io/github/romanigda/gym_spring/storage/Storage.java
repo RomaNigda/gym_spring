@@ -1,5 +1,6 @@
 package io.github.romanigda.gym_spring.storage;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.romanigda.gym_spring.domain.Trainee;
 import io.github.romanigda.gym_spring.domain.Trainer;
 import io.github.romanigda.gym_spring.domain.Training;
@@ -14,12 +15,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import jakarta.annotation.PostConstruct;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -30,6 +29,7 @@ import java.util.function.LongFunction;
 public class Storage {
 
     private static final Logger log = LoggerFactory.getLogger(Storage.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Getter
     private final Map<Long, Trainer> trainerMap;
@@ -71,42 +71,41 @@ public class Storage {
         int traineesLoaded = 0;
         int trainingsLoaded = 0;
 
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            int lineNumber = 0;
-            while ((line = reader.readLine()) != null) {
-                lineNumber++;
-                String trimmedLine = line.trim();
-                if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) {
-                    continue;
-                }
-
-                String[] fields = trimmedLine.split(";", -1);
+        try (var inputStream = resource.getInputStream()) {
+            InitializationData data = Objects.requireNonNull(
+                    OBJECT_MAPPER.readValue(inputStream, InitializationData.class),
+                    "Initialization JSON must contain an object");
+            List<TrainerData> trainers = requireEntries(data.trainers(), "trainers");
+            List<TraineeData> trainees = requireEntries(data.trainees(), "trainees");
+            List<TrainingData> trainings = requireEntries(data.trainings(), "trainings");
+            for (int i = 0; i < trainers.size(); i++) {
+                TrainerData trainerData = trainers.get(i);
                 try {
-                    switch (fields[0].trim()) {
-                        case "trainer" -> {
-                            Trainer trainer = parseTrainer(fields);
-                            putIfAbsent(trainerMap, parseId(fields[1]), trainer, "trainer");
-                            trainersLoaded++;
-                        }
-                        case "trainee" -> {
-                            Trainee trainee = parseTrainee(fields);
-                            putIfAbsent(traineeMap, parseId(fields[1]), trainee, "trainee");
-                            traineesLoaded++;
-                        }
-                        case "training" -> {
-                            Training training = parseTraining(fields);
-                            putIfAbsent(trainingMap, parseId(fields[1]), training, "training");
-                            trainingsLoaded++;
-                        }
-                        default -> throw new IllegalArgumentException(
-                                "Unknown namespace: " + fields[0].trim());
-                    }
+                    Trainer trainer = parseTrainer(trainerData);
+                    putIfAbsent(trainerMap, trainerData.id(), trainer, "trainer");
+                    trainersLoaded++;
                 } catch (RuntimeException exception) {
-                    throw new IllegalArgumentException(
-                            "Invalid initialization data at line " + lineNumber + ": " + trimmedLine,
-                            exception);
+                    throw invalidEntry("trainers", i, exception);
+                }
+            }
+            for (int i = 0; i < trainees.size(); i++) {
+                TraineeData traineeData = trainees.get(i);
+                try {
+                    Trainee trainee = parseTrainee(traineeData);
+                    putIfAbsent(traineeMap, traineeData.id(), trainee, "trainee");
+                    traineesLoaded++;
+                } catch (RuntimeException exception) {
+                    throw invalidEntry("trainees", i, exception);
+                }
+            }
+            for (int i = 0; i < trainings.size(); i++) {
+                TrainingData trainingData = trainings.get(i);
+                try {
+                    Training training = parseTraining(trainingData);
+                    putIfAbsent(trainingMap, trainingData.id(), training, "training");
+                    trainingsLoaded++;
+                } catch (RuntimeException exception) {
+                    throw invalidEntry("trainings", i, exception);
                 }
             }
         } catch (IOException exception) {
@@ -163,79 +162,129 @@ public class Storage {
         return Math.max(0L, map.keySet().stream().mapToLong(Long::longValue).max().orElse(0L));
     }
 
-    private Trainer parseTrainer(String[] fields) {
-        requireFieldCount(fields, 9, "trainer");
+    private Trainer parseTrainer(TrainerData data) {
+        long id = requireId(data.id(), "trainer id");
+        long userId = requireId(data.userId(), "trainer userId");
+        requireProfileUserId(id, userId);
         return new Trainer(
-                fields[2].trim(),
-                fields[3].trim(),
-                fields[4].trim(),
-                fields[5].trim(),
-                parseBoolean(fields[6]),
-                Set.of(parseTrainingType(fields[7])),
-                parseProfileUserId(fields, 8));
+                data.firstName(),
+                data.lastName(),
+                data.username(),
+                data.password(),
+                requireActive(data.isActive()),
+                Set.copyOf(requireTrainingTypes(data.trainingTypes())),
+                userId);
     }
 
-    private Trainee parseTrainee(String[] fields) {
-        requireFieldCount(fields, 10, "trainee");
+    private Trainee parseTrainee(TraineeData data) {
+        long id = requireId(data.id(), "trainee id");
+        long userId = requireId(data.userId(), "trainee userId");
+        requireProfileUserId(id, userId);
         return new Trainee(
-                fields[2].trim(),
-                fields[3].trim(),
-                fields[4].trim(),
-                fields[5].trim(),
-                parseBoolean(fields[6]),
-                LocalDate.parse(fields[7].trim()),
-                fields[8].trim(),
-                parseProfileUserId(fields, 9));
+                data.firstName(),
+                data.lastName(),
+                data.username(),
+                data.password(),
+                requireActive(data.isActive()),
+                LocalDate.parse(data.dateOfBirth()),
+                data.address(),
+                userId);
     }
 
-    private long parseProfileUserId(String[] fields, int userIdIndex) {
-        long id = parseId(fields[1]);
-        long userId = parseId(fields[userIdIndex]);
+    private void requireProfileUserId(long id, long userId) {
         if (id != userId) {
             throw new IllegalArgumentException("Profile id " + id + " does not match userId " + userId);
         }
-        return userId;
     }
 
-    private Training parseTraining(String[] fields) {
-        requireFieldCount(fields, 8, "training");
+    private Training parseTraining(TrainingData data) {
         return new Training(
-                parseId(fields[1]),
-                parseId(fields[2]),
-                parseId(fields[3]),
-                fields[4].trim(),
-                parseTrainingType(fields[5]),
-                LocalDateTime.parse(fields[6].trim()),
-                parseId(fields[7]));
+                requireId(data.id(), "training id"),
+                requireId(data.traineeId(), "training traineeId"),
+                requireId(data.trainerId(), "training trainerId"),
+                data.trainingName(),
+                data.trainingType(),
+                LocalDateTime.parse(data.trainingDateTime()),
+                requireId(data.trainingDuration(), "training duration"));
     }
 
-    private TrainingType parseTrainingType(String field) {
-        return TrainingType.valueOf(field.trim());
-    }
-
-    private long parseId(String field) {
-        return Long.parseLong(field.trim());
-    }
-
-    private boolean parseBoolean(String field) {
-        String value = field.trim();
-        if (!value.equalsIgnoreCase("true") && !value.equalsIgnoreCase("false")) {
-            throw new IllegalArgumentException("Expected true or false, got: " + value);
+    private List<TrainingType> requireTrainingTypes(List<TrainingType> trainingTypes) {
+        if (trainingTypes == null || trainingTypes.isEmpty()) {
+            throw new IllegalArgumentException("Trainer must have at least one training type");
         }
-        return Boolean.parseBoolean(value);
+        return trainingTypes;
     }
 
-    private void requireFieldCount(String[] fields, int expectedCount, String namespace) {
-        if (fields.length != expectedCount) {
+    private boolean requireActive(Boolean active) {
+        if (active == null) {
+            throw new IllegalArgumentException("isActive must be specified");
+        }
+        return active;
+    }
+
+    private long requireId(Long id, String fieldName) {
+        if (id == null) {
+            throw new IllegalArgumentException(fieldName + " must be specified");
+        }
+        return id;
+    }
+
+    private <T> List<T> requireEntries(List<T> entries, String collection) {
+        if (entries == null) {
             throw new IllegalArgumentException(
-                    "Expected " + expectedCount + " fields for " + namespace + ", got " + fields.length);
+                    "Initialization data must contain the " + collection + " array");
         }
+        return entries;
+    }
+
+    private IllegalArgumentException invalidEntry(String collection, int index, RuntimeException cause) {
+        return new IllegalArgumentException(
+                "Invalid initialization data at " + collection + "[" + index + "]", cause);
     }
 
     private <T> void putIfAbsent(Map<Long, T> map, long id, T value, String namespace) {
         if (map.putIfAbsent(id, value) != null) {
             throw new IllegalArgumentException("Duplicate " + namespace + " id: " + id);
         }
+    }
+
+    private record InitializationData(
+            List<TrainerData> trainers,
+            List<TraineeData> trainees,
+            List<TrainingData> trainings) {
+    }
+
+    private record TrainerData(
+            Long id,
+            String firstName,
+            String lastName,
+            String username,
+            String password,
+            Boolean isActive,
+            List<TrainingType> trainingTypes,
+            Long userId) {
+    }
+
+    private record TraineeData(
+            Long id,
+            String firstName,
+            String lastName,
+            String username,
+            String password,
+            Boolean isActive,
+            String dateOfBirth,
+            String address,
+            Long userId) {
+    }
+
+    private record TrainingData(
+            Long id,
+            Long traineeId,
+            Long trainerId,
+            String trainingName,
+            TrainingType trainingType,
+            String trainingDateTime,
+            Long trainingDuration) {
     }
 
 }
