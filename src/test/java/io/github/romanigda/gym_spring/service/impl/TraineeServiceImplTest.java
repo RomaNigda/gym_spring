@@ -132,6 +132,28 @@ class TraineeServiceImplTest {
     }
 
     @Test
+    void updateReturnsFieldAndCredentialErrorsTogether() {
+        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
+            // Arrange
+            TraineeService service = context.getBean(TraineeService.class);
+            Trainee invalid = new Trainee("", " ", null, "", true, null, "address", 0L);
+
+            // Act
+            ValidationException exception = assertThrows(
+                    ValidationException.class, () -> service.update(invalid));
+
+            // Assert
+            assertEquals(List.of(
+                    "firstName must not be blank",
+                    "lastName must not be blank",
+                    "dateOfBirth must not be null",
+                    "trainee id must be a positive number",
+                    "username must not be blank",
+                    "password must not be blank"), exception.getErrors());
+        }
+    }
+
+    @Test
     void updateRejectsMissingTraineesAndInvalidIds() {
         // Arrange
         try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {

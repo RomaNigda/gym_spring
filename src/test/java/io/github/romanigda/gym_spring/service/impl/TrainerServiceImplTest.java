@@ -123,6 +123,27 @@ class TrainerServiceImplTest {
     }
 
     @Test
+    void updateReportsOnlyInvalidFieldsAndLeavesTrainerUnchanged() {
+        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
+            // Arrange
+            TrainerService service = context.getBean(TrainerService.class);
+            Trainer existing = service.create(trainer("Update", "Trainer"));
+            Trainer invalid = new Trainer("Changed", "", existing.getUsername(), " ",
+                    false, existing.getTrainingTypes(), existing.getUserId());
+
+            // Act
+            ValidationException exception = assertThrows(
+                    ValidationException.class, () -> service.update(invalid));
+
+            // Assert
+            assertEquals(List.of(
+                    "lastName must not be blank",
+                    "password must not be blank"), exception.getErrors());
+            assertEquals(existing, service.selectById(existing.getUserId()));
+        }
+    }
+
+    @Test
     void updateRejectsMissingTrainersAndInvalidIds() {
         // Arrange
         try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
