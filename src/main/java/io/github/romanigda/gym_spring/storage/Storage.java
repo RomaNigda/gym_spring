@@ -31,7 +31,6 @@ public class Storage {
 
     private static final Logger log = LoggerFactory.getLogger(Storage.class);
 
-    // ===== 1. Посилання на біни-мапи (namespace = ім’я біна) =====
     @Getter
     private final Map<Long, Trainer> trainerMap;
     @Getter
@@ -46,13 +45,11 @@ public class Storage {
     private final AtomicLong traineeIdSequence = new AtomicLong();
     private final AtomicLong trainingIdSequence = new AtomicLong();
 
-    // ===== 2. Шлях до файлу з property placeholder =====
     @Value("${storage.init.file}")
     private String initFilePath;
 
     private final ResourceLoader resourceLoader;
 
-    // ===== 3. Конструктор: інжектимо чотири мапи =====
     public Storage(
             @Qualifier("trainerStorage") Map<Long, Trainer> trainerStorage,
             @Qualifier("traineeStorage") Map<Long, Trainee> traineeStorage,
@@ -66,7 +63,6 @@ public class Storage {
         this.resourceLoader = resourceLoader;
     }
 
-    // ===== 4. Ініціалізація з файлу після створення біна =====
     @PostConstruct
     public void init() {
         log.info("Loading initial data from {}", initFilePath);
