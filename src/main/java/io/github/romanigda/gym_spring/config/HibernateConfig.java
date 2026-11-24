@@ -3,10 +3,12 @@ package io.github.romanigda.gym_spring.config;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import io.github.romanigda.gym_spring.domain.User;
+import org.flywaydb.core.Flyway;
 import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.env.Environment;
 import org.springframework.orm.hibernate5.HibernateTransactionManager;
 import org.springframework.orm.hibernate5.LocalSessionFactoryBean;
@@ -41,7 +43,18 @@ public class HibernateConfig {
         return new HikariDataSource(config);
     }
 
+    @Bean(initMethod = "migrate")
+    public Flyway flyway(DataSource dataSource) {
+        return Flyway.configure()
+                .dataSource(dataSource)
+                // Existing databases were initialized outside Flyway, but still need V1.
+                .baselineOnMigrate(true)
+                .baselineVersion("0")
+                .load();
+    }
+
     @Bean
+    @DependsOn("flyway")
     public LocalSessionFactoryBean sessionFactory(DataSource dataSource, Environment environment) {
         LocalSessionFactoryBean factoryBean = new LocalSessionFactoryBean();
         factoryBean.setDataSource(dataSource);

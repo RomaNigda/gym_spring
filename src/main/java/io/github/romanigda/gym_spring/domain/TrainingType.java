@@ -11,7 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Immutable;
 
-/** Constant dictionary populated by db/training_type.sql; never modified by the application. */
+/** Constant dictionary populated by Flyway; never modified by the application. */
 @Entity
 @Immutable
 @Table(name = "training_type")
