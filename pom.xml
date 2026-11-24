@@ -28,6 +28,16 @@
 		<hibernate.version>6.6.18.Final</hibernate.version>
 		<mockito.version>5.20.0</mockito.version>
 	</properties>
+	<dependencyManagement>
+		<dependencies>
+			<!-- Align Hibernate's and Mockito's Byte Buddy to a version that supports current JDKs -->
+			<dependency>
+				<groupId>net.bytebuddy</groupId>
+				<artifactId>byte-buddy</artifactId>
+				<version>1.17.7</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework</groupId>

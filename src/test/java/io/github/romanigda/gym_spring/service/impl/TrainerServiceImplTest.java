@@ -1,199 +1,174 @@
 package io.github.romanigda.gym_spring.service.impl;
 
-import io.github.romanigda.gym_spring.config.AppConfig;
+import io.github.romanigda.gym_spring.dao.TraineeDao;
+import io.github.romanigda.gym_spring.dao.TrainerDao;
+import io.github.romanigda.gym_spring.dao.TrainingTypeDao;
 import io.github.romanigda.gym_spring.domain.Trainee;
 import io.github.romanigda.gym_spring.domain.Trainer;
 import io.github.romanigda.gym_spring.domain.TrainingType;
-import io.github.romanigda.gym_spring.exception.DuplicateEntityException;
+import io.github.romanigda.gym_spring.domain.User;
 import io.github.romanigda.gym_spring.exception.EntityNotFoundException;
 import io.github.romanigda.gym_spring.exception.ValidationException;
-import io.github.romanigda.gym_spring.service.TraineeService;
-import io.github.romanigda.gym_spring.service.TrainerService;
+import io.github.romanigda.gym_spring.util.UserCredentialsGenerator;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDate;
 import java.util.List;
-import java.util.Set;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class TrainerServiceImplTest {
+    private static final TrainingType CARDIO = new TrainingType(2L, "CARDIO");
+    private static final TrainingType YOGA = new TrainingType(5L, "YOGA");
+
+    @Mock
+    private TrainerDao trainerDao;
+    @Mock
+    private TraineeDao traineeDao;
+    @Mock
+    private TrainingTypeDao trainingTypeDao;
+    @Mock
+    private UserCredentialsGenerator credentialsGenerator;
+
+    @InjectMocks
+    private TrainerServiceImpl trainerService;
+
     @Test
-    void createGeneratesIdUsernameAndPassword() {
+    void createResolvesSpecializationByNameAndUsesGeneratedCredentials() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TrainerService service = context.getBean(TrainerService.class);
-            Trainer input = trainer("Service", "Trainer");
+        User generated = user("John", "Doe", "John.Doe", true);
+        when(trainingTypeDao.findByName("cardio")).thenReturn(Optional.of(CARDIO));
+        when(credentialsGenerator.createUser("John", "Doe")).thenReturn(generated);
+        when(trainerDao.save(any(Trainer.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        Trainer input = new Trainer(new User("John", "Doe", false), new TrainingType(null, "cardio"));
 
-            // Act
-            Trainer created = service.create(input);
+        // Act
+        Trainer created = trainerService.create(input);
 
-            // Assert
-            assertEquals(6L, created.getUserId());
-            assertEquals("Service.Trainer", created.getUsername());
-            assertTrue(created.getPassword().matches("[A-Za-z0-9]{10}"));
-            assertEquals(input.getTrainingTypes(), created.getTrainingTypes());
-        }
+        // Assert
+        assertSame(generated, created.getUser());
+        assertSame(CARDIO, created.getSpecialization());
     }
 
     @Test
-    void createGeneratesUsernameUniqueAcrossTraineesAndTrainers() {
+    void createThrowsWhenSpecializationDoesNotExist() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TraineeService traineeService = context.getBean(TraineeService.class);
-            TrainerService trainerService = context.getBean(TrainerService.class);
+        when(trainingTypeDao.findById(99L)).thenReturn(Optional.empty());
+        Trainer input = new Trainer(new User("John", "Doe", true), new TrainingType(99L, null));
 
-            // Act
-            Trainee trainee = traineeService.create(new Trainee("Shared", "Name", true,
-                    LocalDate.of(1990, 1, 1), "address"));
-            Trainer trainer = trainerService.create(trainer("Shared", "Name"));
+        // Act
+        assertThrows(EntityNotFoundException.class, () -> trainerService.create(input));
 
-            // Assert
-            assertEquals("Shared.Name", trainee.getUsername());
-            assertEquals("Shared.Name1", trainer.getUsername());
-        }
+        // Assert
+        verify(trainerDao, never()).save(any());
+        verifyNoInteractions(credentialsGenerator);
     }
 
     @Test
-    void createRejectsNullTrainerAndEmptyTrainingTypes() {
+    void createRejectsMissingRequiredFields() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TrainerService service = context.getBean(TrainerService.class);
-            Trainer noTrainingTypes = new Trainer("Valid", "Trainer", true, Set.of());
+        Trainer input = new Trainer(new User("", "Doe", true), null);
 
-            // Act
-            ValidationException nullException = assertThrows(
-                    ValidationException.class, () -> service.create(null));
-            ValidationException typesException = assertThrows(
-                    ValidationException.class, () -> service.create(noTrainingTypes));
+        // Act
+        ValidationException exception = assertThrows(ValidationException.class,
+                () -> trainerService.create(input));
 
-            // Assert
-            assertEquals("Trainer must not be null", nullException.getMessage());
-            assertEquals("trainingTypes must not be empty", typesException.getMessage());
-        }
+        // Assert
+        assertEquals(List.of("firstName must not be blank", "specialization must not be null"),
+                exception.getErrors());
     }
 
     @Test
-    void createReturnsAllTrainerValidationErrors() {
+    void updateChangesNamesAndSpecialization() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TrainerService service = context.getBean(TrainerService.class);
-            Trainer invalid = new Trainer("", " ", true, Set.of());
+        Trainer existing = new Trainer(user("John", "Doe", "John.Doe", true), CARDIO);
+        when(trainerDao.findByUsername("John.Doe")).thenReturn(Optional.of(existing));
+        when(trainingTypeDao.findById(5L)).thenReturn(Optional.of(YOGA));
+        when(trainerDao.update(existing)).thenReturn(existing);
+        Trainer input = new Trainer(user("Johnny", "Doer", "John.Doe", true), new TrainingType(5L, null));
 
-            // Act
-            ValidationException exception = assertThrows(
-                    ValidationException.class, () -> service.create(invalid));
+        // Act
+        Trainer updated = trainerService.update(input);
 
-            // Assert
-            assertEquals(List.of(
-                    "firstName must not be blank",
-                    "lastName must not be blank",
-                    "trainingTypes must not be empty"), exception.getErrors());
-        }
+        // Assert
+        assertEquals("Johnny", updated.getUser().getFirstName());
+        assertEquals("Doer", updated.getUser().getLastName());
+        assertSame(YOGA, updated.getSpecialization());
     }
 
     @Test
-    void updateChangesTrainerAndRejectsDuplicateUsername() {
+    void toggleActiveSwitchesStateOnEveryCall() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TrainerService service = context.getBean(TrainerService.class);
-            TraineeService traineeService = context.getBean(TraineeService.class);
-            Trainer created = service.create(trainer("Update", "Trainer"));
-            Trainee otherProfile = traineeService.create(new Trainee("Other", "Profile", true,
-                    LocalDate.of(1990, 1, 1), "address"));
-            Trainer updated = new Trainer("Update", "Changed", created.getUsername(), created.getPassword(),
-                    false, Set.of(TrainingType.CARDIO), created.getUserId());
-            Trainer duplicateUsername = new Trainer("Update", "Changed", otherProfile.getUsername(),
-                    created.getPassword(), true, Set.of(TrainingType.STRENGTH), created.getUserId());
+        Trainer trainer = new Trainer(user("John", "Doe", "John.Doe", false), CARDIO);
+        when(trainerDao.findByUsername("John.Doe")).thenReturn(Optional.of(trainer));
 
-            // Act
-            Trainer result = service.update(updated);
-            DuplicateEntityException exception = assertThrows(
-                    DuplicateEntityException.class, () -> service.update(duplicateUsername));
+        // Act
+        boolean afterFirstCall = trainerService.toggleActive("John.Doe");
+        boolean afterSecondCall = trainerService.toggleActive("John.Doe");
 
-            // Assert
-            assertEquals(updated.getLastName(), result.getLastName());
-            assertEquals(Set.of(TrainingType.CARDIO), result.getTrainingTypes());
-            assertEquals(result, service.selectById(created.getUserId()));
-            assertTrue(exception.getMessage().contains(otherProfile.getUsername()));
-        }
+        // Assert
+        assertTrue(afterFirstCall);
+        assertFalse(afterSecondCall);
     }
 
     @Test
-    void updateReportsOnlyInvalidFieldsAndLeavesTrainerUnchanged() {
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            // Arrange
-            TrainerService service = context.getBean(TrainerService.class);
-            Trainer existing = service.create(trainer("Update", "Trainer"));
-            Trainer invalid = new Trainer("Changed", "", existing.getUsername(), " ",
-                    false, existing.getTrainingTypes(), existing.getUserId());
-
-            // Act
-            ValidationException exception = assertThrows(
-                    ValidationException.class, () -> service.update(invalid));
-
-            // Assert
-            assertEquals(List.of(
-                    "lastName must not be blank",
-                    "password must not be blank"), exception.getErrors());
-            assertEquals(existing, service.selectById(existing.getUserId()));
-        }
-    }
-
-    @Test
-    void updateRejectsMissingTrainersAndInvalidIds() {
+    void changePasswordUpdatesUserPassword() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TrainerService service = context.getBean(TrainerService.class);
-            Trainer missing = new Trainer("Missing", "Trainer", "missing.user", "password",
-                    true, Set.of(TrainingType.STRENGTH), 999L);
-            Trainer invalidId = new Trainer("Invalid", "Trainer", "invalid.user", "password",
-                    true, Set.of(TrainingType.STRENGTH), 0L);
+        Trainer trainer = new Trainer(user("John", "Doe", "John.Doe", true), CARDIO);
+        when(trainerDao.findByUsername("John.Doe")).thenReturn(Optional.of(trainer));
 
-            // Act
-            EntityNotFoundException missingException = assertThrows(
-                    EntityNotFoundException.class, () -> service.update(missing));
-            ValidationException idException = assertThrows(
-                    ValidationException.class, () -> service.update(invalidId));
+        // Act
+        trainerService.changePassword("John.Doe", "brandNew12");
 
-            // Assert
-            assertEquals("Trainer not found: 999", missingException.getMessage());
-            assertEquals("trainer id must be a positive number", idException.getMessage());
-        }
+        // Assert
+        assertEquals("brandNew12", trainer.getUser().getPassword());
     }
 
     @Test
-    void selectMethodsFindTrainersAndReportMissingProfiles() {
+    void selectNotAssignedToTraineeReturnsDaoResult() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TrainerService service = context.getBean(TrainerService.class);
-            Trainer created = service.create(trainer("Select", "Trainer"));
+        List<Trainer> trainers = List.of(new Trainer(user("Ann", "Lee", "Ann.Lee", true), YOGA));
+        when(traineeDao.findByUsername("Jane.Smith")).thenReturn(Optional.of(new Trainee()));
+        when(trainerDao.findTrainersNotAssignedToTrainee("Jane.Smith")).thenReturn(trainers);
 
-            // Act
-            Trainer byId = service.selectById(created.getUserId());
-            Trainer byUsername = service.selectByUsername(created.getUsername());
-            var all = service.selectAll();
-            EntityNotFoundException missingId = assertThrows(
-                    EntityNotFoundException.class, () -> service.selectById(999L));
-            EntityNotFoundException missingUsername = assertThrows(
-                    EntityNotFoundException.class, () -> service.selectByUsername("missing.user"));
-            ValidationException invalidId = assertThrows(
-                    ValidationException.class, () -> service.selectById(0L));
+        // Act
+        List<Trainer> result = trainerService.selectNotAssignedToTrainee("Jane.Smith");
 
-            // Assert
-            assertEquals(created, byId);
-            assertEquals(created, byUsername);
-            assertTrue(all.contains(created));
-            assertEquals("Trainer not found: 999", missingId.getMessage());
-            assertTrue(missingUsername.getMessage().contains("missing.user"));
-            assertEquals("trainer id must be a positive number", invalidId.getMessage());
-        }
+        // Assert
+        assertEquals(trainers, result);
     }
 
-    private Trainer trainer(String firstName, String lastName) {
-        return new Trainer(firstName, lastName, true, Set.of(TrainingType.STRENGTH));
+    @Test
+    void selectNotAssignedToTraineeThrowsWhenTraineeIsMissing() {
+        // Arrange
+        when(traineeDao.findByUsername("Missing.User")).thenReturn(Optional.empty());
+
+        // Act
+        assertThrows(EntityNotFoundException.class,
+                () -> trainerService.selectNotAssignedToTrainee("Missing.User"));
+
+        // Assert
+        verify(trainerDao, never()).findTrainersNotAssignedToTrainee(any());
+    }
+
+    private static User user(String firstName, String lastName, String username, boolean active) {
+        User user = new User(firstName, lastName, active);
+        user.setUsername(username);
+        user.setPassword("password12");
+        return user;
     }
 }
