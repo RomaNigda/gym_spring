@@ -1,43 +1,71 @@
 package io.github.romanigda.gym_spring.domain;
 
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
+@Entity
+@Table(name = "trainee")
 @Getter
-public class Trainee extends User {
+@Setter
+@NoArgsConstructor
+public class Trainee {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
+
+    @Column(name = "address")
     private String address;
-    private Long userId;
 
-    public Trainee() {
-    }
+    @Valid
+    @NotNull
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, optional = false)
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    private User user;
 
-    public Trainee(String firstName, String lastName, boolean isActive, LocalDate dateOfBirth, String address) {
-        this(firstName, lastName, null, null, isActive, dateOfBirth, address, null);
-    }
+    @ManyToMany
+    @JoinTable(name = "trainee_trainer",
+            joinColumns = @JoinColumn(name = "trainee_id"),
+            inverseJoinColumns = @JoinColumn(name = "trainer_id"))
+    private Set<Trainer> trainers = new HashSet<>();
 
-    public Trainee(String firstName, String lastName, String username, String password,
-                   boolean isActive, LocalDate dateOfBirth, String address, Long userId) {
-        super(firstName, lastName, username, password, isActive);
+    @OneToMany(mappedBy = "trainee", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private List<Training> trainings = new ArrayList<>();
+
+    public Trainee(User user, LocalDate dateOfBirth, String address) {
+        this.user = user;
         this.dateOfBirth = dateOfBirth;
         this.address = address;
-        this.userId = userId;
     }
-
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("Trainee{");
-        sb.append("dateOfBirth=").append(dateOfBirth);
-        sb.append(", address='").append(address).append('\'');
-        sb.append(", userId=").append(userId);
-        sb.append(", firstName='").append(firstName).append('\'');
-        sb.append(", lastName='").append(lastName).append('\'');
-        sb.append(", username='").append(username).append('\'');
-        sb.append(", password='").append(password).append('\'');
-        sb.append(", isActive=").append(isActive);
-        sb.append('}');
-        return sb.toString();
+        return "Trainee{id=" + id
+                + ", user=" + user
+                + ", dateOfBirth=" + dateOfBirth
+                + ", address='" + address + "'}";
     }
 }

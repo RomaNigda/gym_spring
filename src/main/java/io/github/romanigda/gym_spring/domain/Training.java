@@ -1,49 +1,78 @@
 package io.github.romanigda.gym_spring.domain;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
+@Entity
+@Table(name = "training")
 @Getter
+@Setter
+@NoArgsConstructor
 public class Training {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private Long traineeId;
-    private Long trainerId;
+
+    @NotNull
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "trainee_id", nullable = false)
+    private Trainee trainee;
+
+    @NotNull
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "trainer_id", nullable = false)
+    private Trainer trainer;
+
+    @NotBlank
+    @Column(name = "training_name", nullable = false)
     private String trainingName;
+
+    @NotNull
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "training_type_id", nullable = false)
     private TrainingType trainingType;
-    private LocalDateTime trainingDateTime;
-    private Long trainingDuration;
 
-    public Training() {
-    }
+    @NotNull
+    @Column(name = "training_date", nullable = false)
+    private LocalDate trainingDate;
 
-    public Training(Long traineeId, Long trainerId, String trainingName, TrainingType trainingType,
-                    LocalDateTime trainingDateTime, Long trainingDuration) {
-        this(null, traineeId, trainerId, trainingName, trainingType, trainingDateTime, trainingDuration);
-    }
+    @NotNull
+    @Positive
+    @Column(name = "training_duration", nullable = false)
+    private Integer trainingDuration;
 
-    public Training(Long id, Long traineeId, Long trainerId, String trainingName, TrainingType trainingType,
-                    LocalDateTime trainingDateTime, Long trainingDuration) {
-        this.id = id;
-        this.traineeId = traineeId;
-        this.trainerId = trainerId;
+    public Training(Trainee trainee, Trainer trainer, String trainingName, TrainingType trainingType,
+                    LocalDate trainingDate, Integer trainingDuration) {
+        this.trainee = trainee;
+        this.trainer = trainer;
         this.trainingName = trainingName;
         this.trainingType = trainingType;
-        this.trainingDateTime = trainingDateTime;
+        this.trainingDate = trainingDate;
         this.trainingDuration = trainingDuration;
     }
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("Training{");
-        sb.append("id=").append(id);
-        sb.append(", traineeId=").append(traineeId);
-        sb.append(", trainerId=").append(trainerId);
-        sb.append(", trainingName='").append(trainingName).append('\'');
-        sb.append(", trainingType=").append(trainingType);
-        sb.append(", trainingDateTime=").append(trainingDateTime);
-        sb.append(", trainingDuration=").append(trainingDuration);
-        sb.append('}');
-        return sb.toString();
+        return "Training{id=" + id
+                + ", trainee=" + (trainee == null ? null : trainee.getUser().getUsername())
+                + ", trainer=" + (trainer == null ? null : trainer.getUser().getUsername())
+                + ", trainingName='" + trainingName + '\''
+                + ", trainingType=" + (trainingType == null ? null : trainingType.getTrainingTypeName())
+                + ", trainingDate=" + trainingDate
+                + ", trainingDuration=" + trainingDuration + '}';
     }
 }
