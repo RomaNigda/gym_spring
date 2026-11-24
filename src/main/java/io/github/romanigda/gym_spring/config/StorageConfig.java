@@ -7,20 +7,12 @@ import io.github.romanigda.gym_spring.domain.TrainingType;
 import io.github.romanigda.gym_spring.storage.Storage;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Configuration
-@PropertySource("classpath:application.properties")
 public class StorageConfig {
-
-    @Bean
-    public static PropertySourcesPlaceholderConfigurer propertySourcesPlaceholderConfigurer() {
-        return new PropertySourcesPlaceholderConfigurer();
-    }
 
     @Bean
     public Map<Long, Trainer> trainerStorage() {
