@@ -1,14 +1,16 @@
 package io.github.romanigda.gym_spring.service;
 
 import io.github.romanigda.gym_spring.domain.Training;
+import io.github.romanigda.gym_spring.dto.NewTraining;
+import io.github.romanigda.gym_spring.dto.TraineeTrainingCriteria;
+import io.github.romanigda.gym_spring.dto.TrainerTrainingCriteria;
 
 import java.util.List;
 
 public interface TrainingService {
-    /** Creates a training with a generated ID; the input ID is ignored. */
-    Training create(Training training);
+    Training addTraining(NewTraining newTraining);
 
-    Training selectById(Long id);
+    List<Training> selectTraineeTrainings(String traineeUsername, TraineeTrainingCriteria criteria);
 
-    List<Training> selectAll();
+    List<Training> selectTrainerTrainings(String trainerUsername, TrainerTrainingCriteria criteria);
 }
