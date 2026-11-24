@@ -11,7 +11,7 @@ import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 @Configuration
 @ComponentScan(basePackageClasses = GymSpringApplication.class)
 @PropertySource("classpath:application.properties")
-@Import({StorageConfig.class, HibernateConfig.class})
+@Import(HibernateConfig.class)
 public class AppConfig {
 
     @Bean

@@ -2,65 +2,84 @@ package io.github.romanigda.gym_spring.dao.impl;
 
 import io.github.romanigda.gym_spring.dao.TrainerDao;
 import io.github.romanigda.gym_spring.domain.Trainer;
-import io.github.romanigda.gym_spring.storage.Storage;
+import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 @Repository
 public class TrainerDaoImpl implements TrainerDao {
     private static final Logger log = LoggerFactory.getLogger(TrainerDaoImpl.class);
 
-    private final Storage storage;
+    private final SessionFactory sessionFactory;
 
-    public TrainerDaoImpl(Storage storage) {
-        this.storage = storage;
+    public TrainerDaoImpl(SessionFactory sessionFactory) {
+        this.sessionFactory = sessionFactory;
     }
 
     @Override
     public Trainer save(Trainer trainer) {
-        Trainer saved = storage.insertTrainer(trainer);
-        log.debug("Persisted trainer with id {}", saved.getUserId());
-        return saved;
+        sessionFactory.getCurrentSession().persist(trainer);
+        log.debug("Persisted trainer with id {}", trainer.getId());
+        return trainer;
     }
 
     @Override
-    public void update(Trainer trainer) {
-        Long id = trainer.getUserId();
-        if (storage.getTrainerMap().replace(id, trainer) == null) {
-            log.warn("Cannot persist trainer update: id {} was not found", id);
-            throw new IllegalArgumentException("Trainer not found: " + id);
-        }
-        log.debug("Persisted trainer update with id {}", id);
-    }
-
-    @Override
-    public void delete(Long id) {
-        if (storage.getTrainerMap().remove(id) == null) {
-            log.warn("Cannot delete trainer: id {} was not found", id);
-            throw new IllegalArgumentException("Trainer not found: " + id);
-        }
-        log.debug("Deleted trainer with id {}", id);
-    }
-
-    @Override
-    public Optional<Trainer> findById(Long id) {
-        return Optional.ofNullable(storage.getTrainerMap().get(id));
-    }
-
-    @Override
-    public List<Trainer> findAll() {
-        return List.copyOf(storage.getTrainerMap().values());
+    public Trainer update(Trainer trainer) {
+        Trainer merged = sessionFactory.getCurrentSession().merge(trainer);
+        log.debug("Persisted trainer update with id {}", merged.getId());
+        return merged;
     }
 
     @Override
     public Optional<Trainer> findByUsername(String username) {
-        return storage.getTrainerMap().values().stream()
-                .filter(trainer -> Objects.equals(trainer.getUsername(), username))
-                .findFirst();
+        return sessionFactory.getCurrentSession()
+                .createSelectionQuery("""
+                        select distinct t from Trainer t
+                        join fetch t.user u
+                        join fetch t.specialization
+                        left join fetch t.trainees te
+                        left join fetch te.user
+                        where u.username = :username
+                        """, Trainer.class)
+                .setParameter("username", username)
+                .uniqueResultOptional();
+    }
+
+    @Override
+    public List<Trainer> findByUsernames(Collection<String> usernames) {
+        if (usernames.isEmpty()) {
+            return List.of();
+        }
+        return sessionFactory.getCurrentSession()
+                .createSelectionQuery("""
+                        select t from Trainer t
+                        join fetch t.user u
+                        join fetch t.specialization
+                        where u.username in :usernames
+                        """, Trainer.class)
+                .setParameterList("usernames", usernames)
+                .getResultList();
+    }
+
+    @Override
+    public List<Trainer> findTrainersNotAssignedToTrainee(String traineeUsername) {
+        return sessionFactory.getCurrentSession()
+                .createSelectionQuery("""
+                        select t from Trainer t
+                        join fetch t.user u
+                        join fetch t.specialization
+                        where not exists (
+                            select 1 from Trainee te join te.trainers assigned
+                            where te.user.username = :traineeUsername and assigned = t
+                        )
+                        order by u.username
+                        """, Trainer.class)
+                .setParameter("traineeUsername", traineeUsername)
+                .getResultList();
     }
 }
