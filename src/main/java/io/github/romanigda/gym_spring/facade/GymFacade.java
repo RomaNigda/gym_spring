@@ -77,9 +77,9 @@ public class GymFacade {
         trainerService.changePassword(username, newPassword);
     }
 
-    // 9. Update trainer profile
+    // 9. Update the authenticated trainer's profile
     public Trainer updateTrainer(String username, String password, Trainer trainer) {
-        authenticationService.authenticate(username, password);
+        authenticateTrainer(username, password);
         if (trainer == null || trainer.getUser() == null) {
             throw new ValidationException("Trainer and its user data must not be null");
         }
@@ -87,9 +87,9 @@ public class GymFacade {
         return trainerService.update(trainer);
     }
 
-    // 10. Update trainee profile
+    // 10. Update the authenticated trainee's profile
     public Trainee updateTrainee(String username, String password, Trainee trainee) {
-        authenticationService.authenticate(username, password);
+        authenticateTrainee(username, password);
         if (trainee == null || trainee.getUser() == null) {
             throw new ValidationException("Trainee and its user data must not be null");
         }
@@ -99,19 +99,19 @@ public class GymFacade {
 
     // 11. Activate/De-activate trainee (toggles the current state)
     public boolean toggleTraineeActive(String username, String password) {
-        authenticationService.authenticate(username, password);
+        authenticateTrainer(username, password);
         return traineeService.toggleActive(username);
     }
 
     // 12. Activate/De-activate trainer (toggles the current state)
     public boolean toggleTrainerActive(String username, String password) {
-        authenticationService.authenticate(username, password);
+        authenticateTrainer(username, password);
         return trainerService.toggleActive(username);
     }
 
     // 13. Delete trainee profile by username
     public void deleteTrainee(String username, String password) {
-        authenticationService.authenticate(username, password);
+        authenticateTrainer(username, password);
         traineeService.deleteByUsername(username);
     }
 
@@ -129,7 +129,7 @@ public class GymFacade {
 
     // 16. Add training
     public Training addTraining(String username, String password, NewTraining newTraining) {
-        authenticationService.authenticate(username, password);
+        authenticateTrainer(username, password);
         return trainingService.addTraining(newTraining);
     }
 

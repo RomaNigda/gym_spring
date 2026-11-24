@@ -1,8 +1,12 @@
 package io.github.romanigda.gym_spring.facade;
 
 import io.github.romanigda.gym_spring.domain.Trainee;
+import io.github.romanigda.gym_spring.domain.Trainer;
+import io.github.romanigda.gym_spring.domain.TrainingType;
 import io.github.romanigda.gym_spring.domain.User;
 import io.github.romanigda.gym_spring.exception.AuthenticationException;
+import io.github.romanigda.gym_spring.exception.EntityNotFoundException;
+import io.github.romanigda.gym_spring.exception.ValidationException;
 import io.github.romanigda.gym_spring.service.AuthenticationService;
 import io.github.romanigda.gym_spring.service.TraineeService;
 import io.github.romanigda.gym_spring.service.TrainerService;
@@ -19,8 +23,12 @@ import java.time.LocalDate;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -94,16 +102,165 @@ class GymFacadeTest {
     }
 
     @Test
-    void updateTraineeUsesAuthenticatedUsername() {
+    void updateTraineeAuthenticatesTraineeAndUsesAuthenticatedUsername() {
         // Arrange
-        Trainee input = new Trainee(new User("Jane", "Smith", true), null, "Kyiv");
-        input.getUser().setUsername("Someone.Else");
+        Trainee authenticatedTrainee = new Trainee(new User("Jane", "Smith", true), null, "Kyiv");
+        Trainee input = new Trainee(new User("Janet", "Smith", true), null, "Lviv");
+        input.setId(99L);
+        input.getUser().setId(100L);
+        input.getUser().setUsername("Other.Trainee");
+        when(traineeService.selectByUsername("Jane.Smith")).thenReturn(authenticatedTrainee);
         when(traineeService.update(input)).thenReturn(input);
+        InOrder order = inOrder(authenticationService, traineeService);
 
         // Act
         Trainee updated = facade.updateTrainee("Jane.Smith", "secret1234", input);
 
         // Assert
+        assertSame(input, updated);
         assertEquals("Jane.Smith", updated.getUser().getUsername());
+        order.verify(authenticationService).authenticate("Jane.Smith", "secret1234");
+        order.verify(traineeService).selectByUsername("Jane.Smith");
+        order.verify(traineeService).update(input);
+    }
+
+    @Test
+    void updateTraineeRejectsAuthenticatedNonTraineeBeforeChangingInput() {
+        // Arrange
+        Trainee input = new Trainee(new User("Jane", "Smith", true), null, "Kyiv");
+        input.setId(99L);
+        input.getUser().setId(100L);
+        input.getUser().setUsername("Other.Trainee");
+        EntityNotFoundException failure = new EntityNotFoundException("Trainee not found");
+        when(traineeService.selectByUsername("John.Doe")).thenThrow(failure);
+        InOrder order = inOrder(authenticationService, traineeService);
+
+        // Act
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
+                () -> facade.updateTrainee("John.Doe", "secret1234", input));
+
+        // Assert
+        assertSame(failure, exception);
+        assertEquals("Other.Trainee", input.getUser().getUsername());
+        order.verify(authenticationService).authenticate("John.Doe", "secret1234");
+        order.verify(traineeService).selectByUsername("John.Doe");
+        verify(traineeService, never()).update(any());
+    }
+
+    @Test
+    void updateTraineeDoesNotCheckTraineeWhenAuthenticationFails() {
+        // Arrange
+        Trainee input = new Trainee(new User("Jane", "Smith", true), null, "Kyiv");
+        input.getUser().setUsername("Other.Trainee");
+        doThrow(new AuthenticationException("Invalid username or password"))
+                .when(authenticationService).authenticate("Jane.Smith", "wrong");
+
+        // Act
+        assertThrows(AuthenticationException.class, () -> facade.updateTrainee("Jane.Smith", "wrong", input));
+
+        // Assert
+        assertEquals("Other.Trainee", input.getUser().getUsername());
+        verifyNoInteractions(traineeService);
+    }
+
+    @Test
+    void updateTraineeRejectsMissingTraineeOrUser() {
+        // Arrange
+        Trainee authenticatedTrainee = new Trainee(new User("Jane", "Smith", true), null, "Kyiv");
+        when(traineeService.selectByUsername("Jane.Smith")).thenReturn(authenticatedTrainee);
+
+        // Act
+        ValidationException missingTrainee = assertThrows(ValidationException.class,
+                () -> facade.updateTrainee("Jane.Smith", "secret1234", null));
+        ValidationException missingUser = assertThrows(ValidationException.class,
+                () -> facade.updateTrainee("Jane.Smith", "secret1234", new Trainee()));
+
+        // Assert
+        assertEquals("Trainee and its user data must not be null", missingTrainee.getMessage());
+        assertEquals("Trainee and its user data must not be null", missingUser.getMessage());
+        verify(traineeService, times(2)).selectByUsername("Jane.Smith");
+        verify(traineeService, never()).update(any());
+    }
+
+    @Test
+    void updateTrainerAuthenticatesTrainerAndUsesAuthenticatedUsername() {
+        // Arrange
+        TrainingType specialization = new TrainingType(1L, "CARDIO");
+        Trainer authenticatedTrainer = new Trainer(new User("John", "Doe", true), specialization);
+        Trainer input = new Trainer(new User("Johnny", "Doe", true), specialization);
+        input.setId(99L);
+        input.getUser().setId(100L);
+        input.getUser().setUsername("Other.Trainer");
+        when(trainerService.selectByUsername("John.Doe")).thenReturn(authenticatedTrainer);
+        when(trainerService.update(input)).thenReturn(input);
+        InOrder order = inOrder(authenticationService, trainerService);
+
+        // Act
+        Trainer updated = facade.updateTrainer("John.Doe", "secret1234", input);
+
+        // Assert
+        assertSame(input, updated);
+        assertEquals("John.Doe", updated.getUser().getUsername());
+        order.verify(authenticationService).authenticate("John.Doe", "secret1234");
+        order.verify(trainerService).selectByUsername("John.Doe");
+        order.verify(trainerService).update(input);
+    }
+
+    @Test
+    void updateTrainerRejectsAuthenticatedNonTrainerBeforeChangingInput() {
+        // Arrange
+        Trainer input = new Trainer(new User("John", "Doe", true), new TrainingType(1L, "CARDIO"));
+        input.setId(99L);
+        input.getUser().setId(100L);
+        input.getUser().setUsername("Other.Trainer");
+        EntityNotFoundException failure = new EntityNotFoundException("Trainer not found");
+        when(trainerService.selectByUsername("Jane.Smith")).thenThrow(failure);
+        InOrder order = inOrder(authenticationService, trainerService);
+
+        // Act
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
+                () -> facade.updateTrainer("Jane.Smith", "secret1234", input));
+
+        // Assert
+        assertSame(failure, exception);
+        assertEquals("Other.Trainer", input.getUser().getUsername());
+        order.verify(authenticationService).authenticate("Jane.Smith", "secret1234");
+        order.verify(trainerService).selectByUsername("Jane.Smith");
+        verify(trainerService, never()).update(any());
+    }
+
+    @Test
+    void updateTrainerDoesNotCheckTrainerWhenAuthenticationFails() {
+        // Arrange
+        Trainer input = new Trainer(new User("John", "Doe", true), new TrainingType(1L, "CARDIO"));
+        input.getUser().setUsername("Other.Trainer");
+        doThrow(new AuthenticationException("Invalid username or password"))
+                .when(authenticationService).authenticate("John.Doe", "wrong");
+
+        // Act
+        assertThrows(AuthenticationException.class, () -> facade.updateTrainer("John.Doe", "wrong", input));
+
+        // Assert
+        assertEquals("Other.Trainer", input.getUser().getUsername());
+        verifyNoInteractions(trainerService);
+    }
+
+    @Test
+    void updateTrainerRejectsMissingTrainerOrUser() {
+        // Arrange
+        Trainer authenticatedTrainer = new Trainer(new User("John", "Doe", true), null);
+        when(trainerService.selectByUsername("John.Doe")).thenReturn(authenticatedTrainer);
+
+        // Act
+        ValidationException missingTrainer = assertThrows(ValidationException.class,
+                () -> facade.updateTrainer("John.Doe", "secret1234", null));
+        ValidationException missingUser = assertThrows(ValidationException.class,
+                () -> facade.updateTrainer("John.Doe", "secret1234", new Trainer()));
+
+        // Assert
+        assertEquals("Trainer and its user data must not be null", missingTrainer.getMessage());
+        assertEquals("Trainer and its user data must not be null", missingUser.getMessage());
+        verify(trainerService, times(2)).selectByUsername("John.Doe");
+        verify(trainerService, never()).update(any());
     }
 }

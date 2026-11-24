@@ -93,6 +93,20 @@ class TrainerServiceImplTest {
     }
 
     @Test
+    void selectByUsernameRejectsUsersWithoutTrainerProfiles() {
+        // Arrange
+        when(trainerDao.findByUsername("Jane.Smith")).thenReturn(Optional.empty());
+
+        // Act
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
+                () -> trainerService.selectByUsername("Jane.Smith"));
+
+        // Assert
+        assertEquals("Trainer not found for username: Jane.Smith", exception.getMessage());
+        verify(trainerDao, never()).update(any());
+    }
+
+    @Test
     void updateChangesNamesAndSpecialization() {
         // Arrange
         Trainer existing = new Trainer(user("John", "Doe", "John.Doe", true), CARDIO);
@@ -108,6 +122,33 @@ class TrainerServiceImplTest {
         assertEquals("Johnny", updated.getUser().getFirstName());
         assertEquals("Doer", updated.getUser().getLastName());
         assertSame(YOGA, updated.getSpecialization());
+    }
+
+    @Test
+    void updateUsesUsernameAndIgnoresInputIds() {
+        // Arrange
+        Trainer existing = new Trainer(user("John", "Doe", "John.Doe", true), CARDIO);
+        existing.setId(1L);
+        existing.getUser().setId(2L);
+        Trainer input = new Trainer(user("Johnny", "Doe", "John.Doe", false), new TrainingType(5L, null));
+        input.setId(99L);
+        input.getUser().setId(100L);
+        input.getUser().setPassword("differentPassword");
+        when(trainerDao.findByUsername("John.Doe")).thenReturn(Optional.of(existing));
+        when(trainingTypeDao.findById(5L)).thenReturn(Optional.of(YOGA));
+        when(trainerDao.update(existing)).thenReturn(existing);
+
+        // Act
+        Trainer updated = trainerService.update(input);
+
+        // Assert
+        assertSame(existing, updated);
+        assertEquals(1L, updated.getId());
+        assertEquals(2L, updated.getUser().getId());
+        assertEquals("password12", updated.getUser().getPassword());
+        assertTrue(updated.getUser().isActive());
+        verify(trainerDao).findByUsername("John.Doe");
+        verify(trainerDao).update(existing);
     }
 
     @Test

@@ -150,15 +150,22 @@ class TraineeServiceImplTest {
     void updateChangesProfileFieldsButKeepsCredentials() {
         // Arrange
         Trainee existing = trainee("Jane.Smith", true);
+        existing.setId(1L);
+        existing.getUser().setId(2L);
         when(traineeDao.findByUsername("Jane.Smith")).thenReturn(Optional.of(existing));
         when(traineeDao.update(existing)).thenReturn(existing);
         User changes = user("Janet", "Smyth", "Jane.Smith", null, false);
         Trainee input = new Trainee(changes, LocalDate.of(1990, 1, 1), "Lviv");
+        input.setId(99L);
+        input.getUser().setId(100L);
 
         // Act
         Trainee updated = traineeService.update(input);
 
         // Assert
+        assertSame(existing, updated);
+        assertEquals(1L, updated.getId());
+        assertEquals(2L, updated.getUser().getId());
         assertEquals("Janet", updated.getUser().getFirstName());
         assertEquals("Smyth", updated.getUser().getLastName());
         assertEquals("Jane.Smith", updated.getUser().getUsername());
@@ -166,6 +173,8 @@ class TraineeServiceImplTest {
         assertTrue(updated.getUser().isActive());
         assertEquals(LocalDate.of(1990, 1, 1), updated.getDateOfBirth());
         assertEquals("Lviv", updated.getAddress());
+        verify(traineeDao).findByUsername("Jane.Smith");
+        verify(traineeDao).update(existing);
     }
 
     @Test
