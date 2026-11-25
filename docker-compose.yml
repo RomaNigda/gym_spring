@@ -16,5 +16,16 @@ services:
       timeout: 5s
       retries: 10
 
+  app:
+    build: .
+    container_name: gym_crm_app
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-gym_crm}
+      DB_USERNAME: ${DB_USERNAME:-gym}
+      DB_PASSWORD: ${DB_PASSWORD:-gym}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   gym_crm_data:
