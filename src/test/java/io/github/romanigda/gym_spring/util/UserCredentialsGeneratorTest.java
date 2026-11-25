@@ -24,12 +24,13 @@ class UserCredentialsGeneratorTest {
     private UserCredentialsGenerator generator;
 
     @Test
-    void createUserUsesBaseUsernameWhenItIsFree() {
+    void generateCredentialsUsesBaseUsernameWhenItIsFree() {
         // Arrange
         when(userDao.findUsernamesStartingWith("John.Smith")).thenReturn(List.of());
+        User user = new User("John", "Smith", true);
 
         // Act
-        User user = generator.createUser("John", "Smith");
+        generator.generateCredentials(user);
 
         // Assert
         assertEquals("John.Smith", user.getUsername());
@@ -40,13 +41,14 @@ class UserCredentialsGeneratorTest {
     }
 
     @Test
-    void createUserAddsSerialNumberWhenUsernameAlreadyExists() {
+    void generateCredentialsAddsSerialNumberWhenUsernameAlreadyExists() {
         // Arrange
         when(userDao.findUsernamesStartingWith("John.Smith"))
                 .thenReturn(List.of("John.Smith", "John.Smith1", "John.Smithson"));
+        User user = new User("John", "Smith", true);
 
         // Act
-        User user = generator.createUser("John", "Smith");
+        generator.generateCredentials(user);
 
         // Assert
         assertEquals("John.Smith2", user.getUsername());

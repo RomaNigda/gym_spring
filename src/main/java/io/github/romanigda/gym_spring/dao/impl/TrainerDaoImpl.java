@@ -40,11 +40,9 @@ public class TrainerDaoImpl implements TrainerDao {
         return sessionFactory.getCurrentSession()
                 .createSelectionQuery("""
                         select distinct t from Trainer t
-                        join fetch t.user u
                         join fetch t.specialization
                         left join fetch t.trainees te
-                        left join fetch te.user
-                        where u.username = :username
+                        where t.username = :username
                         """, Trainer.class)
                 .setParameter("username", username)
                 .uniqueResultOptional();
@@ -58,9 +56,8 @@ public class TrainerDaoImpl implements TrainerDao {
         return sessionFactory.getCurrentSession()
                 .createSelectionQuery("""
                         select t from Trainer t
-                        join fetch t.user u
                         join fetch t.specialization
-                        where u.username in :usernames
+                        where t.username in :usernames
                         """, Trainer.class)
                 .setParameterList("usernames", usernames)
                 .getResultList();
@@ -71,13 +68,12 @@ public class TrainerDaoImpl implements TrainerDao {
         return sessionFactory.getCurrentSession()
                 .createSelectionQuery("""
                         select t from Trainer t
-                        join fetch t.user u
                         join fetch t.specialization
                         where not exists (
                             select 1 from Trainee te join te.trainers assigned
-                            where te.user.username = :traineeUsername and assigned = t
+                            where te.username = :traineeUsername and assigned = t
                         )
-                        order by u.username
+                        order by t.username
                         """, Trainer.class)
                 .setParameter("traineeUsername", traineeUsername)
                 .getResultList();

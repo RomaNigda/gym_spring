@@ -14,14 +14,14 @@ public class UserCredentialsGenerator {
         this.userDao = userDao;
     }
 
-    /** Creates an active user with a unique username (checked against the DB) and a random password. */
-    public User createUser(String firstName, String lastName) {
+    /** Generates a unique username (checked against the DB) and a random password for the user. */
+    public void generateCredentials(User user) {
+        String firstName = user.getFirstName();
+        String lastName = user.getLastName();
         String baseUsername = firstName + "." + lastName;
         String username = UsernameGenerator.generateUsername(
                 firstName, lastName, new HashSet<>(userDao.findUsernamesStartingWith(baseUsername)));
-        User user = new User(firstName, lastName, true);
         user.setUsername(username);
         user.setPassword(PasswordGenerator.generatePassword());
-        return user;
     }
 }

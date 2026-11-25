@@ -80,26 +80,26 @@ public class GymFacade {
     // 9. Update the authenticated trainer's profile
     public Trainer updateTrainer(String username, String password, Trainer trainer) {
         authenticateTrainer(username, password);
-        if (trainer == null || trainer.getUser() == null) {
+        if (trainer == null) {
             throw new ValidationException("Trainer and its user data must not be null");
         }
-        trainer.getUser().setUsername(username);
+        trainer.setUsername(username);
         return trainerService.update(trainer);
     }
 
     // 10. Update the authenticated trainee's profile
     public Trainee updateTrainee(String username, String password, Trainee trainee) {
         authenticateTrainee(username, password);
-        if (trainee == null || trainee.getUser() == null) {
+        if (trainee == null) {
             throw new ValidationException("Trainee and its user data must not be null");
         }
-        trainee.getUser().setUsername(username);
+        trainee.setUsername(username);
         return traineeService.update(trainee);
     }
 
     // 11. Activate/De-activate trainee (toggles the current state)
     public boolean toggleTraineeActive(String username, String password) {
-        authenticateTrainer(username, password);
+        authenticateTrainee(username, password);
         return traineeService.toggleActive(username);
     }
 
@@ -111,7 +111,7 @@ public class GymFacade {
 
     // 13. Delete trainee profile by username
     public void deleteTrainee(String username, String password) {
-        authenticateTrainer(username, password);
+        authenticateTrainee(username, password);
         traineeService.deleteByUsername(username);
     }
 

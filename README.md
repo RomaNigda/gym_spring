@@ -12,6 +12,12 @@ version 0, so migration V1 also runs for them without replacing existing trainin
 types. Add new versioned migration files rather than editing applied migrations.
 Hibernate still manages the other tables through `hibernate.hbm2ddl.auto=update`.
 
+`Trainee` and `Trainer` inherit from `User` using joined tables and share its
+primary key. Common fields are accessed directly, for example
+`trainee.getUsername()`. Hibernate's schema update does not convert the old
+`user_id` profile tables to this structure; use a fresh database when switching
+from the previous mapping.
+
 ## PostgreSQL migration tests
 
 The migration tests are skipped unless `GYM_TEST_DB_URL` is set. To run them, use

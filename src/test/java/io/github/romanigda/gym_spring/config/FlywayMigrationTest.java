@@ -1,11 +1,23 @@
 package io.github.romanigda.gym_spring.config;
 
+import io.github.romanigda.gym_spring.dao.UserDao;
+import io.github.romanigda.gym_spring.domain.Trainee;
 import io.github.romanigda.gym_spring.domain.Trainer;
+import io.github.romanigda.gym_spring.domain.Training;
 import io.github.romanigda.gym_spring.domain.TrainingType;
-import io.github.romanigda.gym_spring.domain.User;
+import io.github.romanigda.gym_spring.dto.NewTraining;
+import io.github.romanigda.gym_spring.dto.TraineeTrainingCriteria;
+import io.github.romanigda.gym_spring.dto.TrainerTrainingCriteria;
+import io.github.romanigda.gym_spring.exception.AuthenticationException;
+import io.github.romanigda.gym_spring.facade.GymFacade;
+import io.github.romanigda.gym_spring.service.AuthenticationService;
+import io.github.romanigda.gym_spring.service.TraineeService;
 import io.github.romanigda.gym_spring.service.TrainerService;
+import io.github.romanigda.gym_spring.service.TrainingService;
+import jakarta.validation.ConstraintViolationException;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.output.MigrateResult;
+import org.hibernate.SessionFactory;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,12 +28,15 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.orm.hibernate5.LocalSessionFactoryBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +44,8 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -93,7 +110,7 @@ class FlywayMigrationTest {
         // Act
         context.refresh();
         Trainer trainer = context.getBean(TrainerService.class)
-                .create(new Trainer(new User("Test", "Trainer", true), new TrainingType(null, "CARDIO")));
+                .create(new Trainer("Test", "Trainer", true, new TrainingType(null, "CARDIO")));
         MigrateResult secondMigration = context.getBean(Flyway.class).migrate();
 
         // Assert
@@ -137,6 +154,115 @@ class FlywayMigrationTest {
         assertEquals(1, queryLong("SELECT count(*) FROM flyway_schema_history"
                 + " WHERE version = '1' AND type = 'SQL' AND success"));
         assertEquals(0, repeatedMigration.migrationsExecuted);
+    }
+
+    @Test
+    void persistsAndQueriesJoinedProfilesOnFreshSchema() throws SQLException {
+        // Arrange
+        AnnotationConfigApplicationContext context = newApplicationContext();
+        context.refresh();
+        TrainerService trainerService = context.getBean(TrainerService.class);
+        TraineeService traineeService = context.getBean(TraineeService.class);
+        TrainingService trainingService = context.getBean(TrainingService.class);
+        AuthenticationService authenticationService = context.getBean(AuthenticationService.class);
+        GymFacade facade = context.getBean(GymFacade.class);
+        UserDao userDao = context.getBean(UserDao.class);
+        TransactionTemplate transaction = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
+        TrainingType cardio = new TrainingType(null, "CARDIO");
+        Trainer trainer = trainerService.create(new Trainer("John", "Doe", false, cardio));
+        Trainee trainee = traineeService.create(
+                new Trainee("Jane", "Smith", false, LocalDate.of(1995, 5, 20), "Kyiv"));
+        Trainer duplicateName = trainerService.create(new Trainer("Jane", "Smith", false, cardio));
+        LocalDate date = LocalDate.of(2026, 1, 15);
+
+        // Act
+        authenticationService.authenticate(trainee.getUsername(), trainee.getPassword());
+        List<Boolean> userQueries = transaction.execute(status -> List.of(
+                userDao.existsByUsername(trainee.getUsername()),
+                userDao.existsByUsername(trainer.getUsername()),
+                userDao.existsByUsername("Missing.User"),
+                userDao.findByUsername(trainee.getUsername()).orElseThrow() instanceof Trainee,
+                userDao.findByUsername(trainer.getUsername()).orElseThrow() instanceof Trainer));
+        List<String> unassignedBefore = trainerService.selectNotAssignedToTrainee(trainee.getUsername())
+                .stream().map(Trainer::getUsername).toList();
+        Training training = trainingService.addTraining(new NewTraining(
+                trainee.getUsername(), trainer.getUsername(), "Morning run", null, date, 45));
+        List<Training> traineeTrainings = trainingService.selectTraineeTrainings(trainee.getUsername(),
+                new TraineeTrainingCriteria(date.minusDays(1), date.plusDays(1), "john doe", "cardio"));
+        List<Training> trainerTrainings = trainingService.selectTrainerTrainings(trainer.getUsername(),
+                new TrainerTrainingCriteria(date.minusDays(1), date.plusDays(1), "jane smith"));
+        List<String> unassignedAfter = trainerService.selectNotAssignedToTrainee(trainee.getUsername())
+                .stream().map(Trainer::getUsername).toList();
+        Trainee assigned = traineeService.updateTrainers(
+                trainee.getUsername(), List.of(trainer.getUsername(), duplicateName.getUsername()));
+        Trainer loadedTrainer = trainerService.selectByUsername(trainer.getUsername());
+        Trainee changes = new Trainee("Janet", "Smith", false, LocalDate.of(1995, 5, 20), "Lviv");
+        changes.setUsername("Other.Trainee");
+        Trainee updated = facade.updateTrainee(trainee.getUsername(), trainee.getPassword(), changes);
+        facade.changeTraineePassword(trainee.getUsername(), trainee.getPassword(), "newPassword1");
+        authenticationService.authenticate(trainee.getUsername(), "newPassword1");
+        Trainer trainerChanges = new Trainer("Johnny", "Doe", false, new TrainingType(null, "YOGA"));
+        trainerChanges.setUsername("Other.Trainer");
+        facade.updateTrainer(trainer.getUsername(), trainer.getPassword(), trainerChanges);
+        facade.changeTrainerPassword(trainer.getUsername(), trainer.getPassword(), "trainerPassword1");
+        authenticationService.authenticate(trainer.getUsername(), "trainerPassword1");
+        Trainer updatedTrainer = trainerService.selectByUsername(trainer.getUsername());
+        boolean inactive = traineeService.toggleActive(trainee.getUsername());
+        boolean activeAgain = traineeService.toggleActive(trainee.getUsername());
+        long joinedTraineeRows = queryLong("SELECT count(*) FROM users u JOIN trainee t ON t.id = u.id"
+                + " WHERE u.username = 'Jane.Smith' AND u.first_name = 'Janet'");
+        traineeService.deleteByUsername(trainee.getUsername());
+
+        // Assert
+        assertEquals("Jane.Smith1", duplicateName.getUsername());
+        assertTrue(trainer.isActive());
+        assertTrue(trainee.isActive());
+        assertNotEquals(trainer.getId(), trainee.getId());
+        assertNotEquals(trainee.getId(), duplicateName.getId());
+        assertEquals(List.of(true, true, false, true, true), userQueries);
+        assertEquals(List.of("Jane.Smith1", "John.Doe"), unassignedBefore);
+        assertEquals(List.of("Jane.Smith1"), unassignedAfter);
+        assertEquals(trainee.getUsername(), training.getTrainee().getUsername());
+        assertEquals(List.of(training.getId()), traineeTrainings.stream().map(Training::getId).toList());
+        assertEquals(List.of(training.getId()), trainerTrainings.stream().map(Training::getId).toList());
+        assertEquals(2, assigned.getTrainers().size());
+        assertEquals(List.of("Jane.Smith"),
+                loadedTrainer.getTrainees().stream().map(Trainee::getUsername).toList());
+        assertEquals("Janet", updated.getFirstName());
+        assertEquals("Lviv", updated.getAddress());
+        assertEquals("Johnny", updatedTrainer.getFirstName());
+        assertEquals("YOGA", updatedTrainer.getSpecialization().getTrainingTypeName());
+        assertFalse(inactive);
+        assertTrue(activeAgain);
+        assertEquals(1, joinedTraineeRows);
+        assertEquals(0, queryLong("SELECT count(*) FROM users WHERE username = 'Jane.Smith'"));
+        assertEquals(0, queryLong("SELECT count(*) FROM training"));
+        assertEquals(0, queryLong("SELECT count(*) FROM trainee_trainer"));
+        assertEquals(2, queryLong("SELECT count(*) FROM users u JOIN trainer t ON t.id = u.id"));
+        assertThrows(AuthenticationException.class,
+                () -> authenticationService.authenticate("Jane.Smith", "newPassword1"));
+    }
+
+    @Test
+    void validatesInheritedUserFieldsWhenPersistingAProfile() throws SQLException {
+        // Arrange
+        AnnotationConfigApplicationContext context = newApplicationContext();
+        context.refresh();
+        Trainee trainee = new Trainee(" ", "Smith", true, null, null);
+        trainee.setUsername("Jane.Smith");
+        trainee.setPassword("password");
+        SessionFactory sessionFactory = context.getBean(SessionFactory.class);
+        TransactionTemplate transaction = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
+
+        // Act
+        ConstraintViolationException exception = assertThrows(ConstraintViolationException.class,
+                () -> transaction.executeWithoutResult(status -> sessionFactory.getCurrentSession().persist(trainee)));
+
+        // Assert
+        assertTrue(exception.getConstraintViolations().stream()
+                .anyMatch(violation -> violation.getPropertyPath().toString().equals("firstName")));
+        assertEquals(0, queryLong("SELECT count(*) FROM users"));
+        assertEquals(0, queryLong("SELECT count(*) FROM trainee"));
     }
 
     @Test

@@ -4,7 +4,6 @@ import io.github.romanigda.gym_spring.dao.TraineeDao;
 import io.github.romanigda.gym_spring.dao.TrainerDao;
 import io.github.romanigda.gym_spring.domain.Trainee;
 import io.github.romanigda.gym_spring.domain.Trainer;
-import io.github.romanigda.gym_spring.domain.User;
 import io.github.romanigda.gym_spring.exception.EntityNotFoundException;
 import io.github.romanigda.gym_spring.exception.ValidationException;
 import io.github.romanigda.gym_spring.service.TraineeService;
@@ -42,9 +41,10 @@ public class TraineeServiceImpl implements TraineeService {
     @Override
     public Trainee create(Trainee trainee) {
         validateTrainee(trainee);
-        User user = credentialsGenerator.createUser(
-                trainee.getUser().getFirstName().trim(), trainee.getUser().getLastName().trim());
-        Trainee created = traineeDao.save(new Trainee(user, trainee.getDateOfBirth(), trainee.getAddress()));
+        Trainee profile = new Trainee(trainee.getFirstName().trim(), trainee.getLastName().trim(), true,
+                trainee.getDateOfBirth(), trainee.getAddress());
+        credentialsGenerator.generateCredentials(profile);
+        Trainee created = traineeDao.save(profile);
         log.info("Created trainee profile with id {}", created.getId());
         return created;
     }
@@ -60,16 +60,16 @@ public class TraineeServiceImpl implements TraineeService {
     @Override
     public void changePassword(String username, String newPassword) {
         String password = ServiceValidation.requireText(newPassword, "newPassword");
-        findExisting(username).getUser().setPassword(password);
+        findExisting(username).setPassword(password);
         log.info("Changed password for trainee {}", username);
     }
 
     @Override
     public Trainee update(Trainee trainee) {
         validateTrainee(trainee);
-        Trainee existing = findExisting(trainee.getUser().getUsername());
-        existing.getUser().setFirstName(trainee.getUser().getFirstName().trim());
-        existing.getUser().setLastName(trainee.getUser().getLastName().trim());
+        Trainee existing = findExisting(trainee.getUsername());
+        existing.setFirstName(trainee.getFirstName().trim());
+        existing.setLastName(trainee.getLastName().trim());
         existing.setDateOfBirth(trainee.getDateOfBirth());
         existing.setAddress(trainee.getAddress());
         Trainee updated = traineeDao.update(existing);
@@ -79,10 +79,10 @@ public class TraineeServiceImpl implements TraineeService {
 
     @Override
     public boolean toggleActive(String username) {
-        User user = findExisting(username).getUser();
-        user.setActive(!user.isActive());
-        log.info("Trainee {} active state changed to {}", username, user.isActive());
-        return user.isActive();
+        Trainee trainee = findExisting(username);
+        trainee.setActive(!trainee.isActive());
+        log.info("Trainee {} active state changed to {}", username, trainee.isActive());
+        return trainee.isActive();
     }
 
     @Override
@@ -105,7 +105,7 @@ public class TraineeServiceImpl implements TraineeService {
         List<Trainer> trainers = trainerDao.findByUsernames(requested);
         if (trainers.size() != requested.size()) {
             Set<String> found = trainers.stream()
-                    .map(trainer -> trainer.getUser().getUsername())
+                    .map(Trainer::getUsername)
                     .collect(Collectors.toSet());
             requested.removeAll(found);
             log.warn("Cannot update trainers of trainee {}: unknown trainers {}", username, requested);
@@ -125,12 +125,12 @@ public class TraineeServiceImpl implements TraineeService {
     }
 
     private void validateTrainee(Trainee trainee) {
-        if (trainee == null || trainee.getUser() == null) {
+        if (trainee == null) {
             throw new ValidationException("Trainee and its user data must not be null");
         }
         List<String> errors = new ArrayList<>();
-        ServiceValidation.collectTextError(trainee.getUser().getFirstName(), "firstName", errors);
-        ServiceValidation.collectTextError(trainee.getUser().getLastName(), "lastName", errors);
+        ServiceValidation.collectTextError(trainee.getFirstName(), "firstName", errors);
+        ServiceValidation.collectTextError(trainee.getLastName(), "lastName", errors);
         if (trainee.getDateOfBirth() != null && trainee.getDateOfBirth().isAfter(LocalDate.now())) {
             errors.add("dateOfBirth must not be in the future");
         }

@@ -57,7 +57,7 @@ public class TrainingServiceImpl implements TrainingService {
                 trainingType, newTraining.trainingDate(), newTraining.trainingDuration()));
         trainee.getTrainers().add(trainer);
         log.info("Added training with id {} for trainee {} and trainer {}",
-                training.getId(), trainee.getUser().getUsername(), trainer.getUser().getUsername());
+                training.getId(), trainee.getUsername(), trainer.getUsername());
         return training;
     }
 

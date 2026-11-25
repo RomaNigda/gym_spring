@@ -68,8 +68,8 @@ public class Training {
     @Override
     public String toString() {
         return "Training{id=" + id
-                + ", trainee=" + (trainee == null ? null : trainee.getUser().getUsername())
-                + ", trainer=" + (trainer == null ? null : trainer.getUser().getUsername())
+                + ", trainee=" + (trainee == null ? null : trainee.getUsername())
+                + ", trainer=" + (trainer == null ? null : trainer.getUsername())
                 + ", trainingName='" + trainingName + '\''
                 + ", trainingType=" + (trainingType == null ? null : trainingType.getTrainingTypeName())
                 + ", trainingDate=" + trainingDate

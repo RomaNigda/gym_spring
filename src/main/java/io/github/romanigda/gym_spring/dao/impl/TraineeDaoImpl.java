@@ -44,11 +44,9 @@ public class TraineeDaoImpl implements TraineeDao {
         return sessionFactory.getCurrentSession()
                 .createSelectionQuery("""
                         select distinct t from Trainee t
-                        join fetch t.user u
                         left join fetch t.trainers tr
-                        left join fetch tr.user
                         left join fetch tr.specialization
-                        where u.username = :username
+                        where t.username = :username
                         """, Trainee.class)
                 .setParameter("username", username)
                 .uniqueResultOptional();

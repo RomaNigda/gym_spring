@@ -10,9 +10,9 @@
 5. Підготувати SQL-скрипт для довідника `training_type` (константний, з застосунку не змінюється).
 
 ## Етап 2. Entity-моделі за схемою
-1. **User** (батьківська сутність): `id`, `firstName`, `lastName`, `username`, `password`, `isActive`.
-2. **Trainee**: `id`, `dateOfBirth` (optional), `address` (optional), `@OneToOne` на User (`user_id`, cascade).
-3. **Trainer**: `id`, `@ManyToOne` на TrainingType (`specialization`), `@OneToOne` на User.
+1. **User** (батьківська сутність): `id`, `firstName`, `lastName`, `username`, `password`, `isActive`; успадкування `JOINED`.
+2. **Trainee**: успадковує User; `id` є спільним ключем, `dateOfBirth` та `address` необов'язкові.
+3. **Trainer**: успадковує User; `id` є спільним ключем, спеціалізація має зв'язок `@ManyToOne` із TrainingType.
 4. **TrainingType**: `id`, `trainingTypeName`.
 5. **Training**: `id`, `@ManyToOne` на Trainee, Trainer і TrainingType, а також `trainingName`, `trainingDate`, `trainingDuration`.
 6. Зв'язок Trainee–Trainer many-to-many реалізується через окрему join-таблицю.

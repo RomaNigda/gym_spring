@@ -8,7 +8,6 @@ import io.github.romanigda.gym_spring.domain.Trainee;
 import io.github.romanigda.gym_spring.domain.Trainer;
 import io.github.romanigda.gym_spring.domain.Training;
 import io.github.romanigda.gym_spring.domain.TrainingType;
-import io.github.romanigda.gym_spring.domain.User;
 import io.github.romanigda.gym_spring.dto.NewTraining;
 import io.github.romanigda.gym_spring.dto.TraineeTrainingCriteria;
 import io.github.romanigda.gym_spring.dto.TrainerTrainingCriteria;
@@ -55,8 +54,8 @@ class TrainingServiceImplTest {
     @Test
     void addTrainingDefaultsTypeToTrainerSpecializationAndAssignsTrainer() {
         // Arrange
-        Trainee trainee = new Trainee(user("Jane.Smith"), null, null);
-        Trainer trainer = new Trainer(user("John.Doe"), CARDIO);
+        Trainee trainee = trainee("Jane.Smith");
+        Trainer trainer = trainer("John.Doe");
         when(traineeDao.findByUsername("Jane.Smith")).thenReturn(Optional.of(trainee));
         when(trainerDao.findByUsername("John.Doe")).thenReturn(Optional.of(trainer));
         when(trainingDao.save(any(Training.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -80,8 +79,8 @@ class TrainingServiceImplTest {
     void addTrainingUsesExplicitTrainingType() {
         // Arrange
         when(traineeDao.findByUsername("Jane.Smith"))
-                .thenReturn(Optional.of(new Trainee(user("Jane.Smith"), null, null)));
-        when(trainerDao.findByUsername("John.Doe")).thenReturn(Optional.of(new Trainer(user("John.Doe"), CARDIO)));
+                .thenReturn(Optional.of(trainee("Jane.Smith")));
+        when(trainerDao.findByUsername("John.Doe")).thenReturn(Optional.of(trainer("John.Doe")));
         when(trainingTypeDao.findByName("YOGA")).thenReturn(Optional.of(YOGA));
         when(trainingDao.save(any(Training.class))).thenAnswer(invocation -> invocation.getArgument(0));
         NewTraining request = new NewTraining("Jane.Smith", "John.Doe", "Stretch", "YOGA", DATE, 30);
@@ -113,7 +112,7 @@ class TrainingServiceImplTest {
     void addTrainingThrowsWhenTrainerIsMissing() {
         // Arrange
         when(traineeDao.findByUsername("Jane.Smith"))
-                .thenReturn(Optional.of(new Trainee(user("Jane.Smith"), null, null)));
+                .thenReturn(Optional.of(trainee("Jane.Smith")));
         when(trainerDao.findByUsername("Ghost")).thenReturn(Optional.empty());
         NewTraining request = new NewTraining("Jane.Smith", "Ghost", "Run", null, DATE, 30);
 
@@ -183,10 +182,17 @@ class TrainingServiceImplTest {
         verifyNoInteractions(trainingDao);
     }
 
-    private static User user(String username) {
-        User user = new User("First", "Last", true);
-        user.setUsername(username);
-        user.setPassword("password12");
-        return user;
+    private static Trainee trainee(String username) {
+        Trainee trainee = new Trainee("First", "Last", true, null, null);
+        trainee.setUsername(username);
+        trainee.setPassword("password12");
+        return trainee;
+    }
+
+    private static Trainer trainer(String username) {
+        Trainer trainer = new Trainer("First", "Last", true, CARDIO);
+        trainer.setUsername(username);
+        trainer.setPassword("password12");
+        return trainer;
     }
 }

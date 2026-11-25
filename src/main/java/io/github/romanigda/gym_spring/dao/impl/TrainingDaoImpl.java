@@ -21,9 +21,7 @@ public class TrainingDaoImpl implements TrainingDao {
     private static final String BASE_QUERY = """
             select tr from Training tr
             join fetch tr.trainee te
-            join fetch te.user teu
             join fetch tr.trainer t
-            join fetch t.user tu
             join fetch tr.trainingType tt
             where 1 = 1
             """;
@@ -44,13 +42,13 @@ public class TrainingDaoImpl implements TrainingDao {
     @Override
     public List<Training> findTraineeTrainings(String traineeUsername, LocalDate fromDate, LocalDate toDate,
                                                String trainerName, String trainingTypeName) {
-        StringBuilder hql = new StringBuilder(BASE_QUERY).append(" and teu.username = :username");
+        StringBuilder hql = new StringBuilder(BASE_QUERY).append(" and te.username = :username");
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("username", traineeUsername);
         appendDateRange(hql, params, fromDate, toDate);
         if (hasText(trainerName)) {
-            hql.append(" and (lower(tu.username) like :trainerName")
-                    .append(" or lower(concat(tu.firstName, ' ', tu.lastName)) like :trainerName)");
+            hql.append(" and (lower(t.username) like :trainerName")
+                    .append(" or lower(concat(t.firstName, ' ', t.lastName)) like :trainerName)");
             params.put("trainerName", containsPattern(trainerName));
         }
         if (hasText(trainingTypeName)) {
@@ -63,13 +61,13 @@ public class TrainingDaoImpl implements TrainingDao {
     @Override
     public List<Training> findTrainerTrainings(String trainerUsername, LocalDate fromDate, LocalDate toDate,
                                                String traineeName) {
-        StringBuilder hql = new StringBuilder(BASE_QUERY).append(" and tu.username = :username");
+        StringBuilder hql = new StringBuilder(BASE_QUERY).append(" and t.username = :username");
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("username", trainerUsername);
         appendDateRange(hql, params, fromDate, toDate);
         if (hasText(traineeName)) {
-            hql.append(" and (lower(teu.username) like :traineeName")
-                    .append(" or lower(concat(teu.firstName, ' ', teu.lastName)) like :traineeName)");
+            hql.append(" and (lower(te.username) like :traineeName")
+                    .append(" or lower(concat(te.firstName, ' ', te.lastName)) like :traineeName)");
             params.put("traineeName", containsPattern(traineeName));
         }
         return execute(hql, params);

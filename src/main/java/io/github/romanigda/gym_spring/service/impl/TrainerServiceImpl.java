@@ -5,7 +5,6 @@ import io.github.romanigda.gym_spring.dao.TrainerDao;
 import io.github.romanigda.gym_spring.dao.TrainingTypeDao;
 import io.github.romanigda.gym_spring.domain.Trainer;
 import io.github.romanigda.gym_spring.domain.TrainingType;
-import io.github.romanigda.gym_spring.domain.User;
 import io.github.romanigda.gym_spring.exception.EntityNotFoundException;
 import io.github.romanigda.gym_spring.exception.ValidationException;
 import io.github.romanigda.gym_spring.service.TrainerService;
@@ -41,9 +40,10 @@ public class TrainerServiceImpl implements TrainerService {
     public Trainer create(Trainer trainer) {
         validateTrainer(trainer);
         TrainingType specialization = resolveTrainingType(trainer.getSpecialization());
-        User user = credentialsGenerator.createUser(
-                trainer.getUser().getFirstName().trim(), trainer.getUser().getLastName().trim());
-        Trainer created = trainerDao.save(new Trainer(user, specialization));
+        Trainer profile = new Trainer(trainer.getFirstName().trim(), trainer.getLastName().trim(), true,
+                specialization);
+        credentialsGenerator.generateCredentials(profile);
+        Trainer created = trainerDao.save(profile);
         log.info("Created trainer profile with id {}", created.getId());
         return created;
     }
@@ -59,16 +59,16 @@ public class TrainerServiceImpl implements TrainerService {
     @Override
     public void changePassword(String username, String newPassword) {
         String password = ServiceValidation.requireText(newPassword, "newPassword");
-        findExisting(username).getUser().setPassword(password);
+        findExisting(username).setPassword(password);
         log.info("Changed password for trainer {}", username);
     }
 
     @Override
     public Trainer update(Trainer trainer) {
         validateTrainer(trainer);
-        Trainer existing = findExisting(trainer.getUser().getUsername());
-        existing.getUser().setFirstName(trainer.getUser().getFirstName().trim());
-        existing.getUser().setLastName(trainer.getUser().getLastName().trim());
+        Trainer existing = findExisting(trainer.getUsername());
+        existing.setFirstName(trainer.getFirstName().trim());
+        existing.setLastName(trainer.getLastName().trim());
         existing.setSpecialization(resolveTrainingType(trainer.getSpecialization()));
         Trainer updated = trainerDao.update(existing);
         log.info("Updated trainer profile with id {}", updated.getId());
@@ -77,10 +77,10 @@ public class TrainerServiceImpl implements TrainerService {
 
     @Override
     public boolean toggleActive(String username) {
-        User user = findExisting(username).getUser();
-        user.setActive(!user.isActive());
-        log.info("Trainer {} active state changed to {}", username, user.isActive());
-        return user.isActive();
+        Trainer trainer = findExisting(username);
+        trainer.setActive(!trainer.isActive());
+        log.info("Trainer {} active state changed to {}", username, trainer.isActive());
+        return trainer.isActive();
     }
 
     @Override
@@ -114,12 +114,12 @@ public class TrainerServiceImpl implements TrainerService {
     }
 
     private void validateTrainer(Trainer trainer) {
-        if (trainer == null || trainer.getUser() == null) {
+        if (trainer == null) {
             throw new ValidationException("Trainer and its user data must not be null");
         }
         List<String> errors = new ArrayList<>();
-        ServiceValidation.collectTextError(trainer.getUser().getFirstName(), "firstName", errors);
-        ServiceValidation.collectTextError(trainer.getUser().getLastName(), "lastName", errors);
+        ServiceValidation.collectTextError(trainer.getFirstName(), "firstName", errors);
+        ServiceValidation.collectTextError(trainer.getLastName(), "lastName", errors);
         TrainingType specialization = trainer.getSpecialization();
         if (specialization == null || (specialization.getId() == null
                 && (specialization.getTrainingTypeName() == null || specialization.getTrainingTypeName().isBlank()))) {

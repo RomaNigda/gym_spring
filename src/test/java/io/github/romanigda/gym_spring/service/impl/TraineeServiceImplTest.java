@@ -5,7 +5,6 @@ import io.github.romanigda.gym_spring.dao.TrainerDao;
 import io.github.romanigda.gym_spring.domain.Trainee;
 import io.github.romanigda.gym_spring.domain.Trainer;
 import io.github.romanigda.gym_spring.domain.TrainingType;
-import io.github.romanigda.gym_spring.domain.User;
 import io.github.romanigda.gym_spring.exception.EntityNotFoundException;
 import io.github.romanigda.gym_spring.exception.ValidationException;
 import io.github.romanigda.gym_spring.util.UserCredentialsGenerator;
@@ -28,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -48,28 +48,34 @@ class TraineeServiceImplTest {
     @Test
     void createUsesGeneratedCredentialsAndSavesTrainee() {
         // Arrange
-        User generated = user("Jane", "Smith", "Jane.Smith1", "pass123456", true);
-        when(credentialsGenerator.createUser("Jane", "Smith")).thenReturn(generated);
+        doAnswer(invocation -> {
+            Trainee profile = invocation.getArgument(0);
+            profile.setUsername("Jane.Smith1");
+            profile.setPassword("pass123456");
+            return null;
+        }).when(credentialsGenerator).generateCredentials(any(Trainee.class));
         when(traineeDao.save(any(Trainee.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        Trainee input = new Trainee(new User(" Jane ", "Smith", false), LocalDate.of(1995, 5, 20), "Kyiv");
+        Trainee input = new Trainee(" Jane ", "Smith", false, LocalDate.of(1995, 5, 20), "Kyiv");
 
         // Act
         Trainee created = traineeService.create(input);
 
         // Assert
-        assertSame(generated, created.getUser());
-        assertEquals("Jane.Smith1", created.getUser().getUsername());
+        assertEquals("Jane", created.getFirstName());
+        assertEquals("Smith", created.getLastName());
+        assertEquals("Jane.Smith1", created.getUsername());
+        assertEquals("pass123456", created.getPassword());
+        assertTrue(created.isActive());
         assertEquals(LocalDate.of(1995, 5, 20), created.getDateOfBirth());
         assertEquals("Kyiv", created.getAddress());
+        verify(credentialsGenerator).generateCredentials(created);
     }
 
     @Test
     void createAllowsMissingOptionalFields() {
         // Arrange
-        when(credentialsGenerator.createUser("Jane", "Smith"))
-                .thenReturn(user("Jane", "Smith", "Jane.Smith", "pass123456", true));
         when(traineeDao.save(any(Trainee.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        Trainee input = new Trainee(new User("Jane", "Smith", true), null, null);
+        Trainee input = new Trainee("Jane", "Smith", true, null, null);
 
         // Act
         Trainee created = traineeService.create(input);
@@ -82,7 +88,7 @@ class TraineeServiceImplTest {
     @Test
     void createCollectsAllValidationErrors() {
         // Arrange
-        Trainee invalid = new Trainee(new User(" ", null, true), LocalDate.now().plusDays(1), "Kyiv");
+        Trainee invalid = new Trainee(" ", null, true, LocalDate.now().plusDays(1), "Kyiv");
 
         // Act
         ValidationException exception = assertThrows(ValidationException.class,
@@ -130,7 +136,7 @@ class TraineeServiceImplTest {
         traineeService.changePassword("Jane.Smith", "newPassword1");
 
         // Assert
-        assertEquals("newPassword1", trainee.getUser().getPassword());
+        assertEquals("newPassword1", trainee.getPassword());
     }
 
     @Test
@@ -151,13 +157,11 @@ class TraineeServiceImplTest {
         // Arrange
         Trainee existing = trainee("Jane.Smith", true);
         existing.setId(1L);
-        existing.getUser().setId(2L);
         when(traineeDao.findByUsername("Jane.Smith")).thenReturn(Optional.of(existing));
         when(traineeDao.update(existing)).thenReturn(existing);
-        User changes = user("Janet", "Smyth", "Jane.Smith", null, false);
-        Trainee input = new Trainee(changes, LocalDate.of(1990, 1, 1), "Lviv");
+        Trainee input = new Trainee("Janet", "Smyth", false, LocalDate.of(1990, 1, 1), "Lviv");
+        input.setUsername("Jane.Smith");
         input.setId(99L);
-        input.getUser().setId(100L);
 
         // Act
         Trainee updated = traineeService.update(input);
@@ -165,12 +169,11 @@ class TraineeServiceImplTest {
         // Assert
         assertSame(existing, updated);
         assertEquals(1L, updated.getId());
-        assertEquals(2L, updated.getUser().getId());
-        assertEquals("Janet", updated.getUser().getFirstName());
-        assertEquals("Smyth", updated.getUser().getLastName());
-        assertEquals("Jane.Smith", updated.getUser().getUsername());
-        assertEquals("password12", updated.getUser().getPassword());
-        assertTrue(updated.getUser().isActive());
+        assertEquals("Janet", updated.getFirstName());
+        assertEquals("Smyth", updated.getLastName());
+        assertEquals("Jane.Smith", updated.getUsername());
+        assertEquals("password12", updated.getPassword());
+        assertTrue(updated.isActive());
         assertEquals(LocalDate.of(1990, 1, 1), updated.getDateOfBirth());
         assertEquals("Lviv", updated.getAddress());
         verify(traineeDao).findByUsername("Jane.Smith");
@@ -190,7 +193,7 @@ class TraineeServiceImplTest {
         // Assert
         assertFalse(afterFirstCall);
         assertTrue(afterSecondCall);
-        assertTrue(trainee.getUser().isActive());
+        assertTrue(trainee.isActive());
     }
 
     @Test
@@ -256,17 +259,16 @@ class TraineeServiceImplTest {
     }
 
     private static Trainee trainee(String username, boolean active) {
-        return new Trainee(user("Jane", "Smith", username, "password12", active), LocalDate.of(1995, 5, 20), "Kyiv");
+        Trainee trainee = new Trainee("Jane", "Smith", active, LocalDate.of(1995, 5, 20), "Kyiv");
+        trainee.setUsername(username);
+        trainee.setPassword("password12");
+        return trainee;
     }
 
     private static Trainer trainer(String username) {
-        return new Trainer(user("T", "R", username, "password12", true), new TrainingType(1L, "CARDIO"));
-    }
-
-    private static User user(String firstName, String lastName, String username, String password, boolean active) {
-        User user = new User(firstName, lastName, active);
-        user.setUsername(username);
-        user.setPassword(password);
-        return user;
+        Trainer trainer = new Trainer("T", "R", true, new TrainingType(1L, "CARDIO"));
+        trainer.setUsername(username);
+        trainer.setPassword("password12");
+        return trainer;
     }
 }
