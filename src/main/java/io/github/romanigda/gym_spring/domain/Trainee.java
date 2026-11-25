@@ -1,43 +1,56 @@
 package io.github.romanigda.gym_spring.domain;
 
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrimaryKeyJoinColumn;
+import jakarta.persistence.Table;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
+@Entity
+@Table(name = "trainee")
+@PrimaryKeyJoinColumn(name = "id")
 @Getter
+@Setter
+@NoArgsConstructor
 public class Trainee extends User {
+    @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
+
+    @Column(name = "address")
     private String address;
-    private Long userId;
 
-    public Trainee() {
-    }
+    @ManyToMany
+    @JoinTable(name = "trainee_trainer",
+            joinColumns = @JoinColumn(name = "trainee_id"),
+            inverseJoinColumns = @JoinColumn(name = "trainer_id"))
+    private Set<Trainer> trainers = new HashSet<>();
 
-    public Trainee(String firstName, String lastName, boolean isActive, LocalDate dateOfBirth, String address) {
-        this(firstName, lastName, null, null, isActive, dateOfBirth, address, null);
-    }
+    @OneToMany(mappedBy = "trainee", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private List<Training> trainings = new ArrayList<>();
 
-    public Trainee(String firstName, String lastName, String username, String password,
-                   boolean isActive, LocalDate dateOfBirth, String address, Long userId) {
-        super(firstName, lastName, username, password, isActive);
+    public Trainee(String firstName, String lastName, boolean active, LocalDate dateOfBirth, String address) {
+        super(firstName, lastName, active);
         this.dateOfBirth = dateOfBirth;
         this.address = address;
-        this.userId = userId;
     }
-
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("Trainee{");
-        sb.append("dateOfBirth=").append(dateOfBirth);
-        sb.append(", address='").append(address).append('\'');
-        sb.append(", userId=").append(userId);
-        sb.append(", firstName='").append(firstName).append('\'');
-        sb.append(", lastName='").append(lastName).append('\'');
-        sb.append(", username='").append(username).append('\'');
-        sb.append(", password='").append(password).append('\'');
-        sb.append(", isActive=").append(isActive);
-        sb.append('}');
-        return sb.toString();
+        return "Trainee{" + super.toString()
+                + ", dateOfBirth=" + dateOfBirth
+                + ", address='" + address + "'}";
     }
 }

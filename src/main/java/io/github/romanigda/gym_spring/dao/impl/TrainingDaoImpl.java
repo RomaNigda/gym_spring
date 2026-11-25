@@ -2,57 +2,102 @@ package io.github.romanigda.gym_spring.dao.impl;
 
 import io.github.romanigda.gym_spring.dao.TrainingDao;
 import io.github.romanigda.gym_spring.domain.Training;
-import io.github.romanigda.gym_spring.storage.Storage;
+import org.hibernate.SessionFactory;
+import org.hibernate.query.SelectionQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Optional;
+import java.util.Locale;
+import java.util.Map;
 
 @Repository
 public class TrainingDaoImpl implements TrainingDao {
     private static final Logger log = LoggerFactory.getLogger(TrainingDaoImpl.class);
 
-    private final Storage storage;
+    private static final String BASE_QUERY = """
+            select tr from Training tr
+            join fetch tr.trainee te
+            join fetch tr.trainer t
+            join fetch tr.trainingType tt
+            where 1 = 1
+            """;
 
-    public TrainingDaoImpl(Storage storage) {
-        this.storage = storage;
+    private final SessionFactory sessionFactory;
+
+    public TrainingDaoImpl(SessionFactory sessionFactory) {
+        this.sessionFactory = sessionFactory;
     }
 
     @Override
     public Training save(Training training) {
-        Training saved = storage.insertTraining(training);
-        log.debug("Persisted training with id {}", saved.getId());
-        return saved;
+        sessionFactory.getCurrentSession().persist(training);
+        log.debug("Persisted training with id {}", training.getId());
+        return training;
     }
 
     @Override
-    public void update(Training training) {
-        Long id = training.getId();
-        if (storage.getTrainingMap().replace(id, training) == null) {
-            log.warn("Cannot persist training update: id {} was not found", id);
-            throw new IllegalArgumentException("Training not found: " + id);
+    public List<Training> findTraineeTrainings(String traineeUsername, LocalDate fromDate, LocalDate toDate,
+                                               String trainerName, String trainingTypeName) {
+        StringBuilder hql = new StringBuilder(BASE_QUERY).append(" and te.username = :username");
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("username", traineeUsername);
+        appendDateRange(hql, params, fromDate, toDate);
+        if (hasText(trainerName)) {
+            hql.append(" and (lower(t.username) like :trainerName")
+                    .append(" or lower(concat(t.firstName, ' ', t.lastName)) like :trainerName)");
+            params.put("trainerName", containsPattern(trainerName));
         }
-        log.debug("Persisted training update with id {}", id);
-    }
-
-    @Override
-    public void delete(Long id) {
-        if (storage.getTrainingMap().remove(id) == null) {
-            log.warn("Cannot delete training: id {} was not found", id);
-            throw new IllegalArgumentException("Training not found: " + id);
+        if (hasText(trainingTypeName)) {
+            hql.append(" and lower(tt.trainingTypeName) = :trainingType");
+            params.put("trainingType", trainingTypeName.trim().toLowerCase(Locale.ROOT));
         }
-        log.debug("Deleted training with id {}", id);
+        return execute(hql, params);
     }
 
     @Override
-    public Optional<Training> findById(Long id) {
-        return Optional.ofNullable(storage.getTrainingMap().get(id));
+    public List<Training> findTrainerTrainings(String trainerUsername, LocalDate fromDate, LocalDate toDate,
+                                               String traineeName) {
+        StringBuilder hql = new StringBuilder(BASE_QUERY).append(" and t.username = :username");
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("username", trainerUsername);
+        appendDateRange(hql, params, fromDate, toDate);
+        if (hasText(traineeName)) {
+            hql.append(" and (lower(te.username) like :traineeName")
+                    .append(" or lower(concat(te.firstName, ' ', te.lastName)) like :traineeName)");
+            params.put("traineeName", containsPattern(traineeName));
+        }
+        return execute(hql, params);
     }
 
-    @Override
-    public List<Training> findAll() {
-        return List.copyOf(storage.getTrainingMap().values());
+    private List<Training> execute(StringBuilder hql, Map<String, Object> params) {
+        hql.append(" order by tr.trainingDate");
+        SelectionQuery<Training> query = sessionFactory.getCurrentSession()
+                .createSelectionQuery(hql.toString(), Training.class);
+        params.forEach(query::setParameter);
+        return query.getResultList();
+    }
+
+    private static void appendDateRange(StringBuilder hql, Map<String, Object> params,
+                                        LocalDate fromDate, LocalDate toDate) {
+        if (fromDate != null) {
+            hql.append(" and tr.trainingDate >= :fromDate");
+            params.put("fromDate", fromDate);
+        }
+        if (toDate != null) {
+            hql.append(" and tr.trainingDate <= :toDate");
+            params.put("toDate", toDate);
+        }
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private static String containsPattern(String value) {
+        return "%" + value.trim().toLowerCase(Locale.ROOT) + "%";
     }
 }

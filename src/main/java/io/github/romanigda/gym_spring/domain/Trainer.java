@@ -1,39 +1,48 @@
 package io.github.romanigda.gym_spring.domain;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrimaryKeyJoinColumn;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
+@Entity
+@Table(name = "trainer")
+@PrimaryKeyJoinColumn(name = "id")
 @Getter
+@Setter
+@NoArgsConstructor
 public class Trainer extends User {
-    private Set<TrainingType> trainingTypes;
-    private Long userId;
+    @NotNull
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "specialization", nullable = false)
+    private TrainingType specialization;
 
-    public Trainer() {
-    }
+    @ManyToMany(mappedBy = "trainers")
+    private Set<Trainee> trainees = new HashSet<>();
 
-    public Trainer(String firstName, String lastName, boolean isActive, Set<TrainingType> trainingTypes) {
-        this(firstName, lastName, null, null, isActive, trainingTypes, null);
-    }
+    @OneToMany(mappedBy = "trainer")
+    private List<Training> trainings = new ArrayList<>();
 
-    public Trainer(String firstName, String lastName, String username, String password,
-                   boolean isActive, Set<TrainingType> trainingTypes, Long userId) {
-        super(firstName, lastName, username, password, isActive);
-        this.trainingTypes = trainingTypes;
-        this.userId = userId;
+    public Trainer(String firstName, String lastName, boolean active, TrainingType specialization) {
+        super(firstName, lastName, active);
+        this.specialization = specialization;
     }
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("Trainer{");
-        sb.append("trainingTypes=").append(trainingTypes);
-        sb.append(", userId=").append(userId);
-        sb.append(", firstName='").append(firstName).append('\'');
-        sb.append(", lastName='").append(lastName).append('\'');
-        sb.append(", username='").append(username).append('\'');
-        sb.append(", password='").append(password).append('\'');
-        sb.append(", isActive=").append(isActive);
-        sb.append('}');
-        return sb.toString();
+        return "Trainer{" + super.toString()
+                + ", specialization=" + specialization + '}';
     }
 }

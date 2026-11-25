@@ -1,230 +1,274 @@
 package io.github.romanigda.gym_spring.service.impl;
 
-import io.github.romanigda.gym_spring.config.AppConfig;
+import io.github.romanigda.gym_spring.dao.TraineeDao;
+import io.github.romanigda.gym_spring.dao.TrainerDao;
 import io.github.romanigda.gym_spring.domain.Trainee;
 import io.github.romanigda.gym_spring.domain.Trainer;
 import io.github.romanigda.gym_spring.domain.TrainingType;
-import io.github.romanigda.gym_spring.exception.DuplicateEntityException;
 import io.github.romanigda.gym_spring.exception.EntityNotFoundException;
 import io.github.romanigda.gym_spring.exception.ValidationException;
-import io.github.romanigda.gym_spring.service.TraineeService;
-import io.github.romanigda.gym_spring.service.TrainerService;
+import io.github.romanigda.gym_spring.util.UserCredentialsGenerator;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class TraineeServiceImplTest {
+    @Mock
+    private TraineeDao traineeDao;
+    @Mock
+    private TrainerDao trainerDao;
+    @Mock
+    private UserCredentialsGenerator credentialsGenerator;
+
+    @InjectMocks
+    private TraineeServiceImpl traineeService;
+
     @Test
-    void createGeneratesIdUsernameAndPassword() {
+    void createUsesGeneratedCredentialsAndSavesTrainee() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TraineeService service = context.getBean(TraineeService.class);
-            Trainee input = trainee("Service", "Unique");
+        doAnswer(invocation -> {
+            Trainee profile = invocation.getArgument(0);
+            profile.setUsername("Jane.Smith1");
+            profile.setPassword("pass123456");
+            return null;
+        }).when(credentialsGenerator).generateCredentials(any(Trainee.class));
+        when(traineeDao.save(any(Trainee.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        Trainee input = new Trainee(" Jane ", "Smith", false, LocalDate.of(1995, 5, 20), "Kyiv");
 
-            // Act
-            Trainee created = service.create(input);
+        // Act
+        Trainee created = traineeService.create(input);
 
-            // Assert
-            assertEquals(6L, created.getUserId());
-            assertEquals("Service.Unique", created.getUsername());
-            assertTrue(created.getPassword().matches("[A-Za-z0-9]{10}"));
-            assertEquals(input.getFirstName(), created.getFirstName());
-            assertEquals(input.getLastName(), created.getLastName());
-            assertEquals(input.getDateOfBirth(), created.getDateOfBirth());
-            assertEquals(input.getAddress(), created.getAddress());
-        }
+        // Assert
+        assertEquals("Jane", created.getFirstName());
+        assertEquals("Smith", created.getLastName());
+        assertEquals("Jane.Smith1", created.getUsername());
+        assertEquals("pass123456", created.getPassword());
+        assertTrue(created.isActive());
+        assertEquals(LocalDate.of(1995, 5, 20), created.getDateOfBirth());
+        assertEquals("Kyiv", created.getAddress());
+        verify(credentialsGenerator).generateCredentials(created);
     }
 
     @Test
-    void createGeneratesUsernameUniqueAcrossTraineesAndTrainers() {
+    void createAllowsMissingOptionalFields() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TraineeService traineeService = context.getBean(TraineeService.class);
-            TrainerService trainerService = context.getBean(TrainerService.class);
+        when(traineeDao.save(any(Trainee.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        Trainee input = new Trainee("Jane", "Smith", true, null, null);
 
-            // Act
-            Trainee trainee = traineeService.create(trainee("Shared", "Name"));
-            Trainer trainer = trainerService.create(new Trainer("Shared", "Name", true,
-                    Set.of(TrainingType.STRENGTH)));
+        // Act
+        Trainee created = traineeService.create(input);
 
-            // Assert
-            assertEquals("Shared.Name", trainee.getUsername());
-            assertEquals("Shared.Name1", trainer.getUsername());
-        }
+        // Assert
+        assertEquals(null, created.getDateOfBirth());
+        assertEquals(null, created.getAddress());
     }
 
     @Test
-    void createRejectsInvalidTrainees() {
+    void createCollectsAllValidationErrors() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TraineeService service = context.getBean(TraineeService.class);
-            Trainee blankName = new Trainee(" ", "Name", true, LocalDate.of(1990, 1, 1), "address");
-            Trainee futureBirthDate = new Trainee("Valid", "Name", true,
-                    LocalDate.now().plusDays(1), "address");
+        Trainee invalid = new Trainee(" ", null, true, LocalDate.now().plusDays(1), "Kyiv");
 
-            // Act
-            ValidationException nullException = assertThrows(ValidationException.class,
-                    () -> service.create(null));
-            ValidationException blankException = assertThrows(ValidationException.class,
-                    () -> service.create(blankName));
-            ValidationException dateException = assertThrows(ValidationException.class,
-                    () -> service.create(futureBirthDate));
+        // Act
+        ValidationException exception = assertThrows(ValidationException.class,
+                () -> traineeService.create(invalid));
 
-            // Assert
-            assertEquals("Trainee must not be null", nullException.getMessage());
-            assertEquals("firstName must not be blank", blankException.getMessage());
-            assertEquals("dateOfBirth must not be in the future", dateException.getMessage());
-        }
+        // Assert
+        assertEquals(List.of("firstName must not be blank", "lastName must not be blank",
+                "dateOfBirth must not be in the future"), exception.getErrors());
+        verifyNoInteractions(traineeDao, credentialsGenerator);
     }
 
     @Test
-    void createReturnsAllTraineeValidationErrors() {
+    void createRejectsNullTrainee() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TraineeService service = context.getBean(TraineeService.class);
-            Trainee blankNames = trainee(" ", "");
+        Trainee trainee = null;
 
-            // Act
-            ValidationException exception = assertThrows(
-                    ValidationException.class, () -> service.create(blankNames));
+        // Act
+        ValidationException exception = assertThrows(ValidationException.class,
+                () -> traineeService.create(trainee));
 
-            // Assert
-            assertEquals(List.of(
-                    "firstName must not be blank",
-                    "lastName must not be blank"), exception.getErrors());
-        }
+        // Assert
+        assertEquals("Trainee and its user data must not be null", exception.getMessage());
     }
 
     @Test
-    void updateChangesTraineeAndRejectsDuplicateUsername() {
+    void selectByUsernameThrowsWhenTraineeIsMissing() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TraineeService service = context.getBean(TraineeService.class);
-            TrainerService trainerService = context.getBean(TrainerService.class);
-            Trainee created = service.create(trainee("Update", "Trainee"));
-            Trainer otherProfile = trainerService.create(new Trainer("Other", "Profile", true,
-                    Set.of(TrainingType.STRENGTH)));
-            Trainee updated = new Trainee("Update", "Changed", created.getUsername(), created.getPassword(),
-                    false, created.getDateOfBirth(), "new address", created.getUserId());
-            Trainee duplicateUsername = new Trainee("Update", "Changed", otherProfile.getUsername(),
-                    created.getPassword(), true, created.getDateOfBirth(), "address", created.getUserId());
+        when(traineeDao.findByUsername("Missing.User")).thenReturn(Optional.empty());
 
-            // Act
-            Trainee result = service.update(updated);
-            DuplicateEntityException exception = assertThrows(
-                    DuplicateEntityException.class, () -> service.update(duplicateUsername));
+        // Act
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
+                () -> traineeService.selectByUsername("Missing.User"));
 
-            // Assert
-            assertEquals(updated.getLastName(), result.getLastName());
-            assertEquals(updated.getAddress(), result.getAddress());
-            assertFalse(result.isActive());
-            assertEquals(result, service.selectById(created.getUserId()));
-            assertTrue(exception.getMessage().contains(otherProfile.getUsername()));
-        }
+        // Assert
+        assertEquals("Trainee not found for username: Missing.User", exception.getMessage());
     }
 
     @Test
-    void updateReturnsFieldAndCredentialErrorsTogether() {
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            // Arrange
-            TraineeService service = context.getBean(TraineeService.class);
-            Trainee invalid = new Trainee("", " ", null, "", true, null, "address", 0L);
-
-            // Act
-            ValidationException exception = assertThrows(
-                    ValidationException.class, () -> service.update(invalid));
-
-            // Assert
-            assertEquals(List.of(
-                    "firstName must not be blank",
-                    "lastName must not be blank",
-                    "dateOfBirth must not be null",
-                    "trainee id must be a positive number",
-                    "username must not be blank",
-                    "password must not be blank"), exception.getErrors());
-        }
-    }
-
-    @Test
-    void updateRejectsMissingTraineesAndInvalidIds() {
+    void changePasswordUpdatesUserPassword() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TraineeService service = context.getBean(TraineeService.class);
-            Trainee missing = new Trainee("Missing", "Trainee", "missing.user", "password",
-                    true, LocalDate.of(1990, 1, 1), "address", 999L);
-            Trainee invalidId = new Trainee("Invalid", "Trainee", "invalid.user", "password",
-                    true, LocalDate.of(1990, 1, 1), "address", 0L);
+        Trainee trainee = trainee("Jane.Smith", true);
+        when(traineeDao.findByUsername("Jane.Smith")).thenReturn(Optional.of(trainee));
 
-            // Act
-            EntityNotFoundException missingException = assertThrows(
-                    EntityNotFoundException.class, () -> service.update(missing));
-            ValidationException idException = assertThrows(
-                    ValidationException.class, () -> service.update(invalidId));
+        // Act
+        traineeService.changePassword("Jane.Smith", "newPassword1");
 
-            // Assert
-            assertEquals("Trainee not found: 999", missingException.getMessage());
-            assertEquals("trainee id must be a positive number", idException.getMessage());
-        }
+        // Assert
+        assertEquals("newPassword1", trainee.getPassword());
     }
 
     @Test
-    void selectMethodsFindTraineesAndReportMissingProfiles() {
+    void changePasswordRejectsBlankPassword() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TraineeService service = context.getBean(TraineeService.class);
-            Trainee created = service.create(trainee("Select", "Trainee"));
+        String blankPassword = "  ";
 
-            // Act
-            Trainee byId = service.selectById(created.getUserId());
-            Trainee byUsername = service.selectByUsername(created.getUsername());
-            var all = service.selectAll();
-            EntityNotFoundException missingId = assertThrows(
-                    EntityNotFoundException.class, () -> service.selectById(999L));
-            EntityNotFoundException missingUsername = assertThrows(
-                    EntityNotFoundException.class, () -> service.selectByUsername("missing.user"));
-            ValidationException invalidId = assertThrows(
-                    ValidationException.class, () -> service.selectById(0L));
+        // Act
+        assertThrows(ValidationException.class,
+                () -> traineeService.changePassword("Jane.Smith", blankPassword));
 
-            // Assert
-            assertEquals(created, byId);
-            assertEquals(created, byUsername);
-            assertTrue(all.contains(created));
-            assertEquals("Trainee not found: 999", missingId.getMessage());
-            assertTrue(missingUsername.getMessage().contains("missing.user"));
-            assertEquals("trainee id must be a positive number", invalidId.getMessage());
-        }
+        // Assert
+        verifyNoInteractions(traineeDao);
     }
 
     @Test
-    void deleteRemovesTraineeAndReportsMissingProfiles() {
+    void updateChangesProfileFieldsButKeepsCredentials() {
         // Arrange
-        try (var context = new AnnotationConfigApplicationContext(AppConfig.class)) {
-            TraineeService service = context.getBean(TraineeService.class);
-            Trainee created = service.create(trainee("Delete", "Trainee"));
+        Trainee existing = trainee("Jane.Smith", true);
+        existing.setId(1L);
+        when(traineeDao.findByUsername("Jane.Smith")).thenReturn(Optional.of(existing));
+        when(traineeDao.update(existing)).thenReturn(existing);
+        Trainee input = new Trainee("Janet", "Smyth", false, LocalDate.of(1990, 1, 1), "Lviv");
+        input.setUsername("Jane.Smith");
+        input.setId(99L);
 
-            // Act
-            service.delete(created.getUserId());
-            EntityNotFoundException missing = assertThrows(
-                    EntityNotFoundException.class, () -> service.delete(created.getUserId()));
-            ValidationException invalidId = assertThrows(
-                    ValidationException.class, () -> service.delete(0L));
+        // Act
+        Trainee updated = traineeService.update(input);
 
-            // Assert
-            assertFalse(service.selectAll().contains(created));
-            assertEquals("Trainee not found: " + created.getUserId(), missing.getMessage());
-            assertEquals("trainee id must be a positive number", invalidId.getMessage());
-        }
+        // Assert
+        assertSame(existing, updated);
+        assertEquals(1L, updated.getId());
+        assertEquals("Janet", updated.getFirstName());
+        assertEquals("Smyth", updated.getLastName());
+        assertEquals("Jane.Smith", updated.getUsername());
+        assertEquals("password12", updated.getPassword());
+        assertTrue(updated.isActive());
+        assertEquals(LocalDate.of(1990, 1, 1), updated.getDateOfBirth());
+        assertEquals("Lviv", updated.getAddress());
+        verify(traineeDao).findByUsername("Jane.Smith");
+        verify(traineeDao).update(existing);
     }
 
-    private Trainee trainee(String firstName, String lastName) {
-        return new Trainee(firstName, lastName, true, LocalDate.of(1990, 1, 1), "address");
+    @Test
+    void toggleActiveSwitchesStateOnEveryCall() {
+        // Arrange
+        Trainee trainee = trainee("Jane.Smith", true);
+        when(traineeDao.findByUsername("Jane.Smith")).thenReturn(Optional.of(trainee));
+
+        // Act
+        boolean afterFirstCall = traineeService.toggleActive("Jane.Smith");
+        boolean afterSecondCall = traineeService.toggleActive("Jane.Smith");
+
+        // Assert
+        assertFalse(afterFirstCall);
+        assertTrue(afterSecondCall);
+        assertTrue(trainee.isActive());
+    }
+
+    @Test
+    void deleteByUsernameRemovesTrainee() {
+        // Arrange
+        Trainee trainee = trainee("Jane.Smith", true);
+        when(traineeDao.findByUsername("Jane.Smith")).thenReturn(Optional.of(trainee));
+
+        // Act
+        traineeService.deleteByUsername("Jane.Smith");
+
+        // Assert
+        verify(traineeDao).delete(trainee);
+    }
+
+    @Test
+    void deleteByUsernameThrowsWhenTraineeIsMissing() {
+        // Arrange
+        when(traineeDao.findByUsername("Missing.User")).thenReturn(Optional.empty());
+
+        // Act
+        assertThrows(EntityNotFoundException.class, () -> traineeService.deleteByUsername("Missing.User"));
+
+        // Assert
+        verify(traineeDao, never()).delete(any());
+    }
+
+    @Test
+    void updateTrainersReplacesTrainersList() {
+        // Arrange
+        Trainee trainee = trainee("Jane.Smith", true);
+        trainee.getTrainers().add(trainer("Old.Trainer"));
+        Trainer first = trainer("John.Doe");
+        Trainer second = trainer("Ann.Lee");
+        when(traineeDao.findByUsername("Jane.Smith")).thenReturn(Optional.of(trainee));
+        when(trainerDao.findByUsernames(anyCollection())).thenReturn(List.of(first, second));
+
+        // Act
+        Trainee updated = traineeService.updateTrainers("Jane.Smith", List.of("John.Doe", "Ann.Lee", "John.Doe"));
+
+        // Assert
+        assertEquals(Set.of(first, second), updated.getTrainers());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<java.util.Collection<String>> captor = ArgumentCaptor.forClass(java.util.Collection.class);
+        verify(trainerDao).findByUsernames(captor.capture());
+        assertEquals(Set.of("John.Doe", "Ann.Lee"), Set.copyOf(captor.getValue()));
+    }
+
+    @Test
+    void updateTrainersThrowsWhenSomeTrainersAreMissing() {
+        // Arrange
+        Trainee trainee = trainee("Jane.Smith", true);
+        when(traineeDao.findByUsername("Jane.Smith")).thenReturn(Optional.of(trainee));
+        when(trainerDao.findByUsernames(anyCollection())).thenReturn(List.of(trainer("John.Doe")));
+
+        // Act
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
+                () -> traineeService.updateTrainers("Jane.Smith", List.of("John.Doe", "Ghost.Trainer")));
+
+        // Assert
+        assertEquals("Trainers not found: [Ghost.Trainer]", exception.getMessage());
+        assertTrue(trainee.getTrainers().isEmpty());
+    }
+
+    private static Trainee trainee(String username, boolean active) {
+        Trainee trainee = new Trainee("Jane", "Smith", active, LocalDate.of(1995, 5, 20), "Kyiv");
+        trainee.setUsername(username);
+        trainee.setPassword("password12");
+        return trainee;
+    }
+
+    private static Trainer trainer(String username) {
+        Trainer trainer = new Trainer("T", "R", true, new TrainingType(1L, "CARDIO"));
+        trainer.setUsername(username);
+        trainer.setPassword("password12");
+        return trainer;
     }
 }
