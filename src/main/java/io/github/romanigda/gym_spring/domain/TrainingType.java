@@ -11,6 +11,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Immutable;
 
+import java.util.Objects;
+
 /** Constant dictionary populated by Flyway; never modified by the application. */
 @Entity
 @Immutable
@@ -29,6 +31,22 @@ public class TrainingType {
     public TrainingType(Long id, String trainingTypeName) {
         this.id = id;
         this.trainingTypeName = trainingTypeName;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof TrainingType other)) {
+            return false;
+        }
+        return getTrainingTypeName() != null && Objects.equals(getTrainingTypeName(), other.getTrainingTypeName());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(getTrainingTypeName());
     }
 
     @Override

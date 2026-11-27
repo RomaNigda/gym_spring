@@ -36,7 +36,7 @@ class UserCredentialsGeneratorTest {
         assertEquals("John.Smith", user.getUsername());
         assertEquals("John", user.getFirstName());
         assertEquals("Smith", user.getLastName());
-        assertTrue(user.isActive());
+        assertTrue(user.getActive());
         assertTrue(user.getPassword().matches("[A-Za-z0-9]{10}"));
     }
 

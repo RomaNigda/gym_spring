@@ -215,8 +215,8 @@ class FlywayMigrationTest {
 
         // Assert
         assertEquals("Jane.Smith1", duplicateName.getUsername());
-        assertTrue(trainer.isActive());
-        assertTrue(trainee.isActive());
+        assertTrue(trainer.getActive());
+        assertTrue(trainee.getActive());
         assertNotEquals(trainer.getId(), trainee.getId());
         assertNotEquals(trainee.getId(), duplicateName.getId());
         assertEquals(List.of(true, true, false, true, true), userQueries);

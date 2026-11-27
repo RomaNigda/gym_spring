@@ -65,7 +65,7 @@ class TraineeServiceImplTest {
         assertEquals("Smith", created.getLastName());
         assertEquals("Jane.Smith1", created.getUsername());
         assertEquals("pass123456", created.getPassword());
-        assertTrue(created.isActive());
+        assertTrue(created.getActive());
         assertEquals(LocalDate.of(1995, 5, 20), created.getDateOfBirth());
         assertEquals("Kyiv", created.getAddress());
         verify(credentialsGenerator).generateCredentials(created);
@@ -173,7 +173,7 @@ class TraineeServiceImplTest {
         assertEquals("Smyth", updated.getLastName());
         assertEquals("Jane.Smith", updated.getUsername());
         assertEquals("password12", updated.getPassword());
-        assertTrue(updated.isActive());
+        assertTrue(updated.getActive());
         assertEquals(LocalDate.of(1990, 1, 1), updated.getDateOfBirth());
         assertEquals("Lviv", updated.getAddress());
         verify(traineeDao).findByUsername("Jane.Smith");
@@ -193,7 +193,7 @@ class TraineeServiceImplTest {
         // Assert
         assertFalse(afterFirstCall);
         assertTrue(afterSecondCall);
-        assertTrue(trainee.isActive());
+        assertTrue(trainee.getActive());
     }
 
     @Test

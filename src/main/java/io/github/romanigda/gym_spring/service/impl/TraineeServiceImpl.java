@@ -80,9 +80,9 @@ public class TraineeServiceImpl implements TraineeService {
     @Override
     public boolean toggleActive(String username) {
         Trainee trainee = findExisting(username);
-        trainee.setActive(!trainee.isActive());
-        log.info("Trainee {} active state changed to {}", username, trainee.isActive());
-        return trainee.isActive();
+        trainee.setActive(!Boolean.TRUE.equals(trainee.getActive()));
+        log.info("Trainee {} active state changed to {}", username, trainee.getActive());
+        return trainee.getActive();
     }
 
     @Override

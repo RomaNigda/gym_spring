@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.util.Objects;
 
 @Entity
 @Table(name = "training")
@@ -63,6 +64,28 @@ public class Training {
         this.trainingType = trainingType;
         this.trainingDate = trainingDate;
         this.trainingDuration = trainingDuration;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof Training other)) {
+            return false;
+        }
+        return Objects.equals(getTrainee(), other.getTrainee())
+                && Objects.equals(getTrainer(), other.getTrainer())
+                && Objects.equals(getTrainingName(), other.getTrainingName())
+                && Objects.equals(getTrainingType(), other.getTrainingType())
+                && Objects.equals(getTrainingDate(), other.getTrainingDate())
+                && Objects.equals(getTrainingDuration(), other.getTrainingDuration());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getTrainee(), getTrainer(), getTrainingName(), getTrainingType(),
+                getTrainingDate(), getTrainingDuration());
     }
 
     @Override

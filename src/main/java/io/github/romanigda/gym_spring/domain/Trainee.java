@@ -41,7 +41,7 @@ public class Trainee extends User {
     @OneToMany(mappedBy = "trainee", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private List<Training> trainings = new ArrayList<>();
 
-    public Trainee(String firstName, String lastName, boolean active, LocalDate dateOfBirth, String address) {
+    public Trainee(String firstName, String lastName, Boolean active, LocalDate dateOfBirth, String address) {
         super(firstName, lastName, active);
         this.dateOfBirth = dateOfBirth;
         this.address = address;

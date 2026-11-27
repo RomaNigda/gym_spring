@@ -35,7 +35,7 @@ public class Trainer extends User {
     @OneToMany(mappedBy = "trainer")
     private List<Training> trainings = new ArrayList<>();
 
-    public Trainer(String firstName, String lastName, boolean active, TrainingType specialization) {
+    public Trainer(String firstName, String lastName, Boolean active, TrainingType specialization) {
         super(firstName, lastName, active);
         this.specialization = specialization;
     }

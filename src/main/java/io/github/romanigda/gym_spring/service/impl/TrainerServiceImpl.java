@@ -78,9 +78,9 @@ public class TrainerServiceImpl implements TrainerService {
     @Override
     public boolean toggleActive(String username) {
         Trainer trainer = findExisting(username);
-        trainer.setActive(!trainer.isActive());
-        log.info("Trainer {} active state changed to {}", username, trainer.isActive());
-        return trainer.isActive();
+        trainer.setActive(!Boolean.TRUE.equals(trainer.getActive()));
+        log.info("Trainer {} active state changed to {}", username, trainer.getActive());
+        return trainer.getActive();
     }
 
     @Override

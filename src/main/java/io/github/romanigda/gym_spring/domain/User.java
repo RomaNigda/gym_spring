@@ -13,6 +13,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.Objects;
+
 @Entity
 @Table(name = "users")
 @Inheritance(strategy = InheritanceType.JOINED)
@@ -41,12 +43,28 @@ public class User {
     private String password;
 
     @Column(name = "is_active", nullable = false)
-    private boolean active;
+    private Boolean active;
 
-    public User(String firstName, String lastName, boolean active) {
+    public User(String firstName, String lastName, Boolean active) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.active = active;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof User other)) {
+            return false;
+        }
+        return getUsername() != null && Objects.equals(getUsername(), other.getUsername());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(getUsername());
     }
 
     @Override

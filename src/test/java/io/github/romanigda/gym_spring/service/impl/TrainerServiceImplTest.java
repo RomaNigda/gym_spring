@@ -66,7 +66,7 @@ class TrainerServiceImplTest {
         // Assert
         assertEquals("John.Doe", created.getUsername());
         assertEquals("password12", created.getPassword());
-        assertTrue(created.isActive());
+        assertTrue(created.getActive());
         assertSame(CARDIO, created.getSpecialization());
         verify(credentialsGenerator).generateCredentials(created);
     }
@@ -150,7 +150,7 @@ class TrainerServiceImplTest {
         assertSame(existing, updated);
         assertEquals(1L, updated.getId());
         assertEquals("password12", updated.getPassword());
-        assertTrue(updated.isActive());
+        assertTrue(updated.getActive());
         verify(trainerDao).findByUsername("John.Doe");
         verify(trainerDao).update(existing);
     }
